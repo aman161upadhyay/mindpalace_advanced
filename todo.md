@@ -1,4 +1,4 @@
-# Highlight Compendium — Project TODO
+# Mind Palace — Project TODO
 
 ## Backend / Database
 - [x] Schema: highlights table (id, userId, text, sourceUrl, pageTitle, domain, tags, notes, createdAt)
@@ -15,10 +15,10 @@
 - [x] tRPC: tags.delete (protected)
 - [x] API key endpoint for Chrome extension auth (generate/revoke personal API token)
 
-## Compendium Dashboard Frontend
+## Mind Palace Dashboard Frontend
 - [x] Global design system (dark theme, typography, color palette)
 - [x] DashboardLayout with sidebar navigation
-- [x] Home/Compendium page: searchable, filterable highlight list grouped by domain
+- [x] Home/Mind Palace page: searchable, filterable highlight list grouped by domain
 - [x] Full-text search bar
 - [x] Tag filter sidebar/chips
 - [x] Highlight card component (text preview, source, domain, tags, date)

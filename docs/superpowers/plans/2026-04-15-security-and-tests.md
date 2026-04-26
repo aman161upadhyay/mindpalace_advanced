@@ -139,7 +139,7 @@ export async function getAuthUserIdFromVercelReq(req: VercelRequest): Promise<nu
     const k = key?.trim();
     if (k) cookies[k] = decodeURIComponent(rest.join("=").trim());
   }
-  const token = cookies["hc_session"];
+  const token = cookies["mp_session"];
   if (!token) return null;
   const payload = await verifyJwt(token);
   return payload?.userId ?? null;
@@ -396,7 +396,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     grouped[key].push(h);
   }
 
-  let md = `# My Highlight Compendium\n\n*Exported ${new Date().toLocaleDateString()}*\n\n---\n\n`;
+  let md = `# My Mind Palace\n\n*Exported ${new Date().toLocaleDateString()}*\n\n---\n\n`;
   for (const [domain, items] of Object.entries(grouped)) {
     md += `## ${domain}\n\n`;
     for (const h of items) {
@@ -915,8 +915,8 @@ vi.mock("../../src/lib/db", () => ({ db: mockDb }));
 vi.mock("../../src/lib/auth", () => ({
   getAuthUserIdFromVercelReq: vi.fn(async () => 1),
   verifyJwt: vi.fn(async () => ({ userId: 1, username: "testuser" })),
-  clearSessionCookie: vi.fn(() => "hc_session=; HttpOnly; Path=/; Max-Age=0"),
-  setSessionCookie: vi.fn((t: string) => `hc_session=${t}; HttpOnly`),
+  clearSessionCookie: vi.fn(() => "mp_session=; HttpOnly; Path=/; Max-Age=0"),
+  setSessionCookie: vi.fn((t: string) => `mp_session=${t}; HttpOnly`),
   signJwt: vi.fn(async () => "mock.jwt.token"),
 }));
 
@@ -938,7 +938,7 @@ vi.mock("../../src/lib/keyword-tags", () => ({
 function makeReq(overrides: Partial<VercelRequest> = {}): VercelRequest {
   return {
     method: "GET",
-    headers: { cookie: "hc_session=valid.jwt.token" },
+    headers: { cookie: "mp_session=valid.jwt.token" },
     query: {},
     body: {},
     ...overrides,
@@ -1083,7 +1083,7 @@ describe("GET /api/highlights/export", () => {
     expect(res.statusCode).toBe(200);
     const body = res.body as { filename: string; content: string };
     expect(body.filename).toBe("highlights.md");
-    expect(body.content).toContain("# My Highlight Compendium");
+    expect(body.content).toContain("# My Mind Palace");
     expect(body.content).toContain("Export test highlight");
     expect(body.content).toContain("A note");
   });

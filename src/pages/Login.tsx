@@ -45,7 +45,7 @@ export default function Login() {
       }
 
       await refetch();
-      navigate("/compendium");
+      navigate("/mind-palace");
     } catch {
       setError("Network error. Please try again.");
       setLoading(false);
@@ -59,7 +59,7 @@ export default function Login() {
           <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
             <Highlighter className="w-6 h-6 text-primary" />
           </div>
-          <h1 className="text-2xl font-semibold text-foreground tracking-tight">Compendium</h1>
+          <h1 className="text-2xl font-semibold text-foreground tracking-tight">Mind Palace</h1>
           <p className="text-sm text-muted-foreground mt-1">Sign in to your account</p>
         </div>
 

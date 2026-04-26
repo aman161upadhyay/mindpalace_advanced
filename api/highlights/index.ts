@@ -62,7 +62,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         grouped[key].push(h);
       }
 
-      let md = `# My Highlight Compendium\n\n*Exported ${new Date().toLocaleDateString()}*\n\n---\n\n`;
+      let md = `# My Mind Palace\n\n*Exported ${new Date().toLocaleDateString()}*\n\n---\n\n`;
       for (const [domain, items] of Object.entries(grouped)) {
         md += `## ${domain}\n\n`;
         for (const h of items) {

@@ -1,8 +1,4 @@
-// Popup Script — Highlight Compendium
-// Hardcoded defaults so the popup always works without manual configuration.
-
-const DASHBOARD_URL = "https://mindpalace-bice.vercel.app";
-const API_TOKEN = "hc_89523f01462935157e81b0935f2535723d2eb9a3";
+// Popup Script — Mind Palace v2
 
 document.addEventListener("DOMContentLoaded", () => {
   const viewMain      = document.getElementById("view-main");
@@ -15,6 +11,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const inputUrl      = document.getElementById("input-dashboard-url");
   const inputToken    = document.getElementById("input-api-token");
   const statusEl      = document.getElementById("settings-status");
+  let currentSettings = { dashboardUrl: "", apiToken: "" };
 
   // ─── View Switching ──────────────────────────────────────────────────────────
 
@@ -23,10 +20,10 @@ document.addEventListener("DOMContentLoaded", () => {
     viewSettings.classList.toggle("active", name === "settings");
   }
 
-  btnSettings.addEventListener("click", () => {
-    // Always pre-fill with current (hardcoded) values
-    inputUrl.value   = DASHBOARD_URL;
-    inputToken.value = API_TOKEN;
+  btnSettings.addEventListener("click", async () => {
+    currentSettings = await getSettings();
+    inputUrl.value = currentSettings.dashboardUrl || "";
+    inputToken.value = currentSettings.apiToken || "";
     show("settings");
   });
 
@@ -38,10 +35,16 @@ document.addEventListener("DOMContentLoaded", () => {
   // ─── Save Settings ───────────────────────────────────────────────────────────
 
   btnSave.addEventListener("click", () => {
-    const url   = (inputUrl.value.trim()   || DASHBOARD_URL).replace(/\/$/, "");
-    const token = (inputToken.value.trim() || API_TOKEN);
+    const url = inputUrl.value.trim().replace(/\/$/, "");
+    const token = inputToken.value.trim();
+
+    if (!url || !token) {
+      showStatus("Dashboard URL and API token are required.", "error");
+      return;
+    }
 
     chrome.runtime.sendMessage({ type: "SAVE_SETTINGS", apiToken: token, dashboardUrl: url }, () => {
+      currentSettings = { dashboardUrl: url, apiToken: token };
       showStatus("Settings saved!", "success");
       setTimeout(() => { show("main"); loadRecent(); }, 1200);
     });
@@ -55,8 +58,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ─── Open Dashboard ──────────────────────────────────────────────────────────
 
-  btnDashboard.addEventListener("click", () => {
-    chrome.tabs.create({ url: DASHBOARD_URL + "/compendium" });
+  btnDashboard.addEventListener("click", async () => {
+    const settings = await getSettings();
+    if (!settings.dashboardUrl) {
+      show("settings");
+      showStatus("Add your dashboard URL first.", "error");
+      return;
+    }
+    chrome.tabs.create({ url: settings.dashboardUrl.replace(/\/$/, "") + "/mind-palace" });
     window.close();
   });
 
@@ -65,21 +74,40 @@ document.addEventListener("DOMContentLoaded", () => {
   function loadRecent() {
     listEl.innerHTML = '<div class="spinner"></div>';
 
-    chrome.runtime.sendMessage({ type: "GET_RECENT" }, (response) => {
-      if (chrome.runtime.lastError) {
-        renderError("Extension error. Try reloading the page.");
+    getSettings().then((settings) => {
+      currentSettings = settings;
+      if (!settings.dashboardUrl || !settings.apiToken) {
+        renderNeedsSetup();
         return;
       }
-      if (!response || !response.success) {
-        renderError((response && response.error) || "Could not load highlights");
-        return;
-      }
-      const items = response.data;
-      if (!items || items.length === 0) {
-        renderEmpty();
-      } else {
-        renderHighlights(items);
-      }
+
+      chrome.runtime.sendMessage({ type: "GET_RECENT" }, (response) => {
+        if (chrome.runtime.lastError) {
+          renderError("Extension error. Try reloading the page.");
+          return;
+        }
+        if (!response || !response.success) {
+          renderError((response && response.error) || "Could not load highlights");
+          return;
+        }
+        const items = response.data;
+        if (!items || items.length === 0) {
+          renderEmpty();
+        } else {
+          renderHighlights(items);
+        }
+      });
+    });
+  }
+
+  function getSettings() {
+    return new Promise((resolve) => {
+      chrome.runtime.sendMessage({ type: "GET_SETTINGS" }, (response) => {
+        resolve({
+          dashboardUrl: (response && response.dashboardUrl) || "",
+          apiToken: (response && response.apiToken) || "",
+        });
+      });
     });
   }
 
@@ -103,6 +131,15 @@ document.addEventListener("DOMContentLoaded", () => {
       '<div class="empty-icon">✦</div>' +
       '<div class="empty-title">No highlights yet</div>' +
       '<div class="empty-desc">Select text on any webpage and press<br><strong>Ctrl+Shift+S</strong> to save your first highlight.</div>' +
+      '</div>';
+  }
+
+  function renderNeedsSetup() {
+    listEl.innerHTML =
+      '<div class="empty-state">' +
+      '<div class="empty-icon">✦</div>' +
+      '<div class="empty-title">Connect Mind Palace v2</div>' +
+      '<div class="empty-desc">Open settings and add your v2 dashboard URL plus API token.</div>' +
       '</div>';
   }
 

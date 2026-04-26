@@ -1,6 +1,6 @@
-# Highlight Compendium — End-to-End Documentation
+# Mind Palace — End-to-End Documentation
 
-This document serves as the master reference file for the **Highlight Compendium** project. It outlines the holistic approach taken, details the issues resolved during the final development push, provides a comprehensive manifest of every file in the codebase, and offers actionable considerations for future development.
+This document serves as the master reference file for the **Mind Palace** project. It outlines the holistic approach taken, details the issues resolved during the final development push, provides a comprehensive manifest of every file in the codebase, and offers actionable considerations for future development.
 
 ---
 
@@ -11,7 +11,7 @@ The project is split into three tightly integrated layers:
 1. **The Chrome Extension (MV3)**: A lightweight, intuitive tool that allows users to instantly capture highlighted text across the web. It uses a modern Floating Action Button (FAB) and keyboard shortcuts.
 2. **The Serverless Backend (Vercel + Node.js)**: A collection of serverless API endpoints that handle authentication, extension webhooks, and CRUD operations.
 3. **The Database (Neon Postgres + Drizzle ORM)**: A highly scalable, serverless relational database.
-4. **The Web Dashboard (React + Vite)**: A beautiful, dynamic "compendium" interface to search, filter, and manage saved highlights.
+4. **The Web Dashboard (React + Vite)**: A beautiful, dynamic Mind Palace interface to search, filter, and manage saved highlights.
 
 ### Development Approach
 The primary goal was to create a frictionless user experience. We focused heavily on **resilience** (e.g., fallback mechanisms for shortcuts, robust database connection pooling) and **developer experience** (using Vercel's zero-config deployment and Drizzle's strict type safety). The UI was built with a rich, dynamic aesthetic featuring dark mode support and micro-animations.
@@ -72,7 +72,7 @@ During the final deployment and debugging phases, several critical systemic issu
 
 #### Pages (`src/pages/`)
 - **`Home.tsx`**: Landing page explaining the value proposition.
-- **`Compendium.tsx`**: The core application view. Renders the masonry layout of saved highlights, complete with filtering and search capabilities.
+- **`MindPalace.tsx`**: The core application view. Renders the masonry layout of saved highlights, complete with filtering and search capabilities.
 - **`Settings.tsx`**: Token management and the "Web-to-Extension Bridge" that allows users to seamlessly push their API token to the Chrome extension without opening it.
 - **`Login.tsx` / `Register.tsx`**: Clean, accessible authentication forms.
 
@@ -101,8 +101,8 @@ When handing off or continuing development, consider the following technical pri
    - *Future*: Capture raw HTML or convert DOM selections to Markdown. This preserves hyperlinks, bold styling, and inline images. Ensure you implement heavy HTML sanitization (e.g., `DOMPurify`) before storing/rendering to prevent XSS.
 
 3. **Data Pagination & Virtualization**
-   - *Current State*: `Compendium.tsx` fetches and renders all highlights simultaneously.
-   - *Future*: As user compendiums grow into thousands of items, transition the `api/highlights` endpoint to cursor-based pagination and implement a virtualization library (like `react-virtualized`) on the frontend to maintain 60FPS scrolling.
+   - *Current State*: `MindPalace.tsx` fetches and renders all highlights simultaneously.
+   - *Future*: As user Mind Palace libraries grow into thousands of items, transition the `api/highlights` endpoint to cursor-based pagination and implement a virtualization library (like `react-virtualized`) on the frontend to maintain 60FPS scrolling.
 
 4. **Advanced Extension Fallbacks**
    - *Current State*: The FAB works excellently, but complex sites (like Google Docs or Notion) use `<canvas>` or highly custom DOM structures that bypass standard `window.getSelection()`.

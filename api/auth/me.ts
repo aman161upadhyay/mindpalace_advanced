@@ -19,7 +19,7 @@ function parseCookies(cookieHeader: string): Record<string, string> {
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const cookieHeader = (req.headers.cookie as string) ?? "";
   const cookies = parseCookies(cookieHeader);
-  const token = cookies["hc_session"];
+  const token = cookies["mp_session"];
 
   if (!token) {
     return res.status(401).json({ error: "Not authenticated" });

@@ -15,9 +15,9 @@ Here is the exact mechanism:
 
 ---
 
-## 2. Implementation Plan for Highlight Compendium
+## 2. Implementation Plan for Mind Palace
 
-To bring this powerful, persistent visual highlighting into your current project (`Highlight Compendium`), here is the step-by-step roadmap to integrate it:
+To bring this powerful, persistent visual highlighting into your current project (`Mind Palace`), here is the step-by-step roadmap to integrate it:
 
 ### Step 1: Update the Database Schema
 Currently, your database only saves the raw text and the URL. We need to store the structural "anchors" so the extension knows exactly *where* to paint the highlight on the screen.

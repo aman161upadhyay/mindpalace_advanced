@@ -1,6 +1,4 @@
-// Background Service Worker — Highlight Compendium (MV3)
-
-const DEFAULT_DASHBOARD_URL = "https://mindpalace-bice.vercel.app";
+// Background Service Worker — Mind Palace v2 (MV3)
 
 // Helper to get dynamic settings from storage
 function getSettings() {
@@ -8,7 +6,7 @@ function getSettings() {
     chrome.storage.sync.get(["apiToken", "dashboardUrl"], (items) => {
       resolve({
         apiToken: items.apiToken || "",
-        dashboardUrl: (items.dashboardUrl || DEFAULT_DASHBOARD_URL).replace(/\/$/, "")
+        dashboardUrl: (items.dashboardUrl || "").replace(/\/$/, "")
       });
     });
   });
@@ -19,7 +17,7 @@ chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.removeAll(() => {
     chrome.contextMenus.create({
       id: "save-highlight",
-      title: "Save to Compendium",
+      title: "Save to Mind Palace",
       contexts: ["selection"],
     });
   });
@@ -97,6 +95,9 @@ async function handleSaveHighlight(payload) {
   if (!apiToken) {
     throw new Error("Missing API token! Please configure the extension on the settings page.");
   }
+  if (!dashboardUrl) {
+    throw new Error("Missing dashboard URL! Please configure the extension on the settings page.");
+  }
 
   const response = await fetch(`${dashboardUrl}/api/extension/save`, {
     method: "POST",
@@ -128,7 +129,7 @@ async function handleSaveHighlight(payload) {
 async function handleGetRecent() {
   try {
     const { apiToken, dashboardUrl } = await getSettings();
-    if (!apiToken) return [];
+    if (!apiToken || !dashboardUrl) return [];
     
     const response = await fetch(
       `${dashboardUrl}/api/extension/recent?apiToken=${encodeURIComponent(apiToken)}`,

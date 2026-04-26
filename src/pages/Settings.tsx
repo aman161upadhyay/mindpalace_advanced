@@ -268,7 +268,7 @@ export default function Settings() {
       <header className="sticky top-0 z-10 bg-background/80 backdrop-blur-xl border-b border-border px-6 py-4">
         <div className="max-w-2xl mx-auto flex items-center gap-4">
           <button
-            onClick={() => navigate("/compendium")}
+            onClick={() => navigate("/mind-palace")}
             className="text-muted-foreground hover:text-foreground transition-colors"
           >
             <ArrowLeft className="w-5 h-5" />
@@ -570,7 +570,7 @@ export default function Settings() {
             </div>
             <p className="text-xs text-muted-foreground mt-3">
               A confirmation tooltip will appear briefly to confirm the save. The highlight will
-              appear in your compendium immediately.
+              appear in your Mind Palace immediately.
             </p>
           </div>
         </section>

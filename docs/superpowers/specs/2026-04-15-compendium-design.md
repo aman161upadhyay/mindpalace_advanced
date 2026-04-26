@@ -1,4 +1,4 @@
-# Compendium — Full Product Design Spec
+# Mind Palace — Full Product Design Spec
 **Date:** 2026-04-15
 **Status:** Approved
 
@@ -6,7 +6,7 @@
 
 ## Overview
 
-Compendium is a public knowledge-capture product: a Chrome/Edge browser extension paired with a web dashboard. Any user on the internet can register, install the extension, and build a personal highlight library by selecting text on any webpage and pressing `Ctrl+Shift+S`. The extension auto-configures after a single login — no manual token pasting.
+Mind Palace is a public knowledge-capture product: a Chrome/Edge browser extension paired with a web dashboard. Any user on the internet can register, install the extension, and build a personal highlight library by selecting text on any webpage and pressing `Ctrl+Shift+S`. The extension auto-configures after a single login — no manual token pasting.
 
 ---
 
@@ -38,7 +38,7 @@ Single `vercel deploy` deploys everything. No separate server process. `vercel.j
 ### Registration & Login
 - Username + email + password (no OAuth)
 - Password hashed with bcrypt (12 rounds)
-- On login: server signs JWT `{ userId, username }`, sets in `httpOnly; Secure; SameSite=Lax` cookie named `hc_session`
+- On login: server signs JWT `{ userId, username }`, sets in `httpOnly; Secure; SameSite=Lax` cookie named `mp_session`
 - Cookie expiry: 30 days
 - All protected API routes verify JWT via a shared `requireAuth(req)` helper
 
@@ -51,7 +51,7 @@ Single `vercel deploy` deploys everything. No separate server process. `vercel.j
 ### Session Check
 - `GET /api/auth/me` — returns `{ id, username, email, theme }` or 401
 - `useAuth()` hook calls this on app mount; stores result in React context
-- Unauthenticated users on `/compendium` or `/settings` are redirected to `/login`
+- Unauthenticated users on `/mind-palace` or `/settings` are redirected to `/login`
 
 ---
 
@@ -150,7 +150,7 @@ Single `vercel deploy` deploys everything. No separate server process. `vercel.j
 
 ### Files (all in `/extension`)
 - `manifest.json` — MV3, permissions: storage, activeTab, scripting, contextMenus
-- `background.js` — handles messages, calls API, manages chrome.storage.sync. Contains `DEFAULT_DASHBOARD_URL` constant set to the deployed Vercel URL (e.g. `https://compendium.vercel.app`). This is the URL the popup "Create account" button opens before the extension is configured.
+- `background.js` — handles messages, calls API, manages chrome.storage.sync. Contains the configured deployed Vercel URL (for example `https://mind-palace-v2.vercel.app`) only through extension settings, not hardcoded secrets.
 - `content.js` — keyboard shortcut listener, silent toast, first-time tutorial, DOM bridge
 - `popup.html` + `popup.js` — luxury UI with both themes
 
@@ -197,7 +197,7 @@ Single `vercel deploy` deploys everything. No separate server process. `vercel.j
 - Hero section with product headline
 - Feature grid (6 cards)
 - CTA: "Get started free" → `/register`
-- Shows "Go to your Compendium →" if already logged in
+- Shows "Go to your Mind Palace ->" if already logged in
 
 ### `/login` — Login
 - Luxury card centered on page, both themes
@@ -211,9 +211,9 @@ Single `vercel deploy` deploys everything. No separate server process. `vercel.j
 - Username + Email + Password + Confirm Password
 - "Create account" button
 - Link to `/login`
-- On success: redirect to `/compendium`, auto-push token to extension if present
+- On success: redirect to `/mind-palace`, auto-push token to extension if present
 
-### `/compendium` — Main Dashboard
+### `/mind-palace` — Main Dashboard
 - Protected route (redirect to `/login` if not authed)
 - Search bar, tag filter, domain filter
 - Highlight cards with source, date, tags, text preview

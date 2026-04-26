@@ -1,8 +1,8 @@
-# Highlight Compendium — Implementation Plan
+# Mind Palace — Implementation Plan
 
 ## Overview
 
-Highlight Compendium is a two-part system: a **Chrome Extension (Manifest V3)** that captures text selections from any webpage, and a **web dashboard** (React + tRPC + MySQL) that stores, organises, and presents the captured highlights as a searchable knowledge base.
+Mind Palace is a two-part system: a **Chrome Extension (Manifest V3)** that captures text selections from any webpage, and a **web dashboard** (React + tRPC + MySQL) that stores, organises, and presents the captured highlights as a searchable knowledge base.
 
 ---
 
@@ -87,7 +87,7 @@ Highlight Compendium is a two-part system: a **Chrome Extension (Manifest V3)** 
 ## Chrome Extension Flow
 
 1. User selects text on any webpage (including Gemini, research papers, news sites).
-2. User presses **Ctrl+Shift+S** (Mac: Cmd+Shift+S) — or right-clicks and selects "Save to Compendium".
+2. User presses **Ctrl+Shift+S** (Mac: Cmd+Shift+S) — or right-clicks and selects "Save to Mind Palace".
 3. `content.js` intercepts the keyboard event, reads `window.getSelection().toString()`, and sends a `SAVE_HIGHLIGHT` message to `background.js`.
 4. `background.js` reads the API token and dashboard URL from `chrome.storage.sync`, then POSTs to `/api/trpc/extension.saveHighlight` with the payload.
 5. The server validates the API token, resolves the user, and inserts the highlight into the database.

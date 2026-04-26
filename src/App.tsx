@@ -6,7 +6,7 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import Home from "./pages/Home";
-import Compendium from "./pages/Compendium";
+import MindPalace from "./pages/MindPalace";
 import Settings from "./pages/Settings";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -36,8 +36,8 @@ function Router() {
       <Route path="/" component={Home} />
       <Route path="/login" component={Login} />
       <Route path="/register" component={Register} />
-      <Route path="/compendium">
-        <ProtectedRoute component={Compendium} />
+      <Route path="/mind-palace">
+        <ProtectedRoute component={MindPalace} />
       </Route>
       <Route path="/settings">
         <ProtectedRoute component={Settings} />

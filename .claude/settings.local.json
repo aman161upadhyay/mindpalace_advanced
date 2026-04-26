@@ -13,7 +13,7 @@
       "Bash(npx vitest:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "WebFetch(domain:mindpalace-bice.vercel.app)",
+      "WebFetch(domain:mind-palace-v2.vercel.app)",
       "Bash(npx vercel:*)"
     ]
   }

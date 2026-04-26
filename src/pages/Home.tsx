@@ -11,7 +11,7 @@ export default function Home() {
   // Navigate in useEffect to avoid calling setState during render
   useEffect(() => {
     if (!loading && isAuthenticated) {
-      navigate("/compendium");
+      navigate("/mind-palace");
     }
   }, [loading, isAuthenticated, navigate]);
 
@@ -24,12 +24,12 @@ export default function Home() {
           <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
             <Highlighter className="w-4 h-4 text-primary-foreground" />
           </div>
-          <span className="font-semibold text-foreground tracking-tight">Highlight Compendium</span>
+          <span className="font-semibold text-foreground tracking-tight">Mind Palace</span>
         </div>
         <div className="flex items-center gap-3">
           {loading ? null : isAuthenticated ? (
-            <Button onClick={() => navigate("/compendium")} size="sm">
-              Open Compendium <ArrowRight className="w-3.5 h-3.5 ml-1" />
+            <Button onClick={() => navigate("/mind-palace")} size="sm">
+              Open Mind Palace <ArrowRight className="w-3.5 h-3.5 ml-1" />
             </Button>
           ) : (
             <Button size="sm" onClick={() => navigate("/login")}>
@@ -60,13 +60,13 @@ export default function Home() {
           </h1>
 
           <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed">
-            Capture any text from any webpage with a single shortcut. Build a searchable compendium of everything that matters to you — from research papers to Gemini answers.
+            Capture any text from any webpage with a single shortcut. Build a searchable Mind Palace of everything that matters to you — from research papers to Gemini answers.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             {isAuthenticated ? (
-              <Button size="lg" onClick={() => navigate("/compendium")} className="gap-2 magnetic-btn">
-                Open My Compendium <ArrowRight className="w-4 h-4" />
+              <Button size="lg" onClick={() => navigate("/mind-palace")} className="gap-2 magnetic-btn">
+                Open My Mind Palace <ArrowRight className="w-4 h-4" />
               </Button>
             ) : (
               <Button size="lg" className="gap-2 magnetic-btn" onClick={() => navigate("/login")}>
@@ -116,7 +116,7 @@ export default function Home() {
               {
                 icon: Tag,
                 title: "Custom Tags",
-                desc: "Organize highlights with color-coded tags. Filter your compendium by any tag combination.",
+                desc: "Organize highlights with color-coded tags. Filter your Mind Palace by any tag combination.",
               },
               {
                 icon: BookOpen,
@@ -131,7 +131,7 @@ export default function Home() {
               {
                 icon: Download,
                 title: "Export to JSON or Markdown",
-                desc: "Download your entire compendium at any time in structured JSON or readable Markdown format.",
+                desc: "Download your entire Mind Palace at any time in structured JSON or readable Markdown format.",
               },
             ].map((f) => (
               <div
@@ -152,11 +152,11 @@ export default function Home() {
       {/* CTA */}
       <section className="py-24 px-6">
         <div className="max-w-2xl mx-auto text-center">
-          <h2 className="text-3xl md:text-4xl font-bold mb-4">Start building your compendium</h2>
+          <h2 className="text-3xl md:text-4xl font-bold mb-4">Start building your Mind Palace</h2>
           <p className="text-muted-foreground mb-8">Sign in to get your API key, install the extension, and start capturing knowledge from anywhere on the web.</p>
           {isAuthenticated ? (
-            <Button size="lg" onClick={() => navigate("/compendium")}>
-              Open My Compendium <ArrowRight className="w-4 h-4 ml-2" />
+            <Button size="lg" onClick={() => navigate("/mind-palace")}>
+              Open My Mind Palace <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
           ) : (
             <Button size="lg" onClick={() => navigate("/login")}>
@@ -170,7 +170,7 @@ export default function Home() {
       <footer className="border-t border-border py-8 px-6 text-center text-sm text-muted-foreground">
         <div className="flex items-center justify-center gap-2 mb-2">
           <Highlighter className="w-4 h-4 text-primary" />
-          <span className="font-medium text-foreground">Highlight Compendium</span>
+          <span className="font-medium text-foreground">Mind Palace</span>
         </div>
         <p>Your personal knowledge capture tool</p>
       </footer>

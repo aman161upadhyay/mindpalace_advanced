@@ -1,4 +1,4 @@
-// Content Script — Highlight Compendium (MV3)
+// Content Script — Mind Palace v2 (MV3)
 // Fixes:
 //  1. CSP-safe tooltip: uses Shadow DOM with inline styles only (no external resources)
 //  2. Floating button uses position:fixed (not absolute) so it works on Gemini/Google
@@ -328,7 +328,7 @@
       const response = await sendToBackground({ type: "SAVE_HIGHLIGHT", payload });
 
       if (response && response.success) {
-        showTooltip("Saved to Compendium ✓", "success", tipX, tipY);
+        showTooltip("Saved to Mind Palace ✓", "success", tipX, tipY);
         try { window.getSelection().removeAllRanges(); } catch (_) {}
       } else {
         const err = (response && response.error) || "Unknown error";

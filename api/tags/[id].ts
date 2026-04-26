@@ -19,7 +19,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const cookieHeader = (req.headers.cookie as string) ?? "";
   const cookies = parseCookies(cookieHeader);
-  const token = cookies["hc_session"];
+  const token = cookies["mp_session"];
   if (!token) return res.status(401).json({ error: "Not authenticated" });
   const payload = await verifyJwt(token);
   if (!payload) return res.status(401).json({ error: "Invalid session" });

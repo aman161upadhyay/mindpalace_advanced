@@ -208,7 +208,7 @@ Visual rules:
 - Use `box-decoration-break: clone` so wrapped multi-line highlights look intentional.
 - Never import fonts, images, external CSS, GSAP, or animation libraries into host pages.
 - No custom cursor and no global resets. The extension must not change the website's layout, typography, or pointer behavior.
-- Optional later milestone: on hover, show a compact Shadow DOM tooltip with "Saved in Mind Palace" and an "Open in Compendium" action. This should be separate from first-pass retention.
+- Optional later milestone: on hover, show a compact Shadow DOM tooltip with "Saved in Mind Palace" and an "Open in Mind Palace" action. This should be separate from first-pass retention.
 
 Recommended CSS:
 

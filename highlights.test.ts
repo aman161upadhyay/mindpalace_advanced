@@ -35,7 +35,7 @@ vi.mock("./src/lib/db", () => ({ db: mockDb }));
 
 vi.mock("./src/lib/auth", () => ({
   getAuthUserIdFromVercelReq: mockGetAuthUserId,
-  clearSessionCookie: vi.fn(() => "hc_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0"),
+  clearSessionCookie: vi.fn(() => "mp_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0"),
   verifyJwt: vi.fn(),
   signJwt: vi.fn(),
   setSessionCookie: vi.fn(),
@@ -70,7 +70,7 @@ import loginHandler from "./api/auth/login";
 function makeReq(overrides: Partial<Record<string, unknown>> = {}): VercelRequest {
   return {
     method: "GET",
-    headers: { cookie: "hc_session=valid.jwt.token" },
+    headers: { cookie: "mp_session=valid.jwt.token" },
     query: {},
     body: {},
     ...overrides,
@@ -239,7 +239,7 @@ describe("highlights.export", () => {
     expect(res.statusCode).toBe(200);
     const body = res.body as Record<string, unknown>;
     expect(body.filename).toBe("highlights.md");
-    expect(body.content).toContain("# My Highlight Compendium");
+    expect(body.content).toContain("# My Mind Palace");
     expect(body.content).toContain("Export test highlight");
     expect(body.content).toContain("A note");
   });

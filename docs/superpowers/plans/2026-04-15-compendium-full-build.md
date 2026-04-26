@@ -1,8 +1,8 @@
-# Compendium Full Build -- Implementation Plan
+# Mind Palace Full Build -- Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Transform Compendium from a local demo into a production-ready public product on Vercel with real auth, Neon Postgres, and a self-configuring Chrome/Edge extension.
+**Goal:** Transform Mind Palace from a local demo into a production-ready public product on Vercel with real auth, Neon Postgres, and a self-configuring Chrome/Edge extension.
 
 **Architecture:** Vercel Serverless Functions handle all API calls; React + Vite frontend deploys as static site on Vercel CDN; Neon Postgres stores all data via Drizzle ORM; JWT in httpOnly cookies authenticates dashboard users; API tokens authenticate the browser extension.
 
@@ -269,7 +269,7 @@ CREATE INDEX IF NOT EXISTS idx_tags_user_id ON tags(user_id);
 
 ## Task 3: Auth helpers
 
-**Goal:** Create JWT sign/verify functions using `jose` and a `requireAuth` helper that reads the `hc_session` httpOnly cookie.
+**Goal:** Create JWT sign/verify functions using `jose` and a `requireAuth` helper that reads the `mp_session` httpOnly cookie.
 
 - [ ] **3.1** Create `src/lib/auth.ts`:
 
@@ -330,7 +330,7 @@ export async function requireAuth(
 ): Promise<JwtPayload> {
   const cookieHeader = req.headers.get("cookie") ?? "";
   const cookies = parseCookies(cookieHeader);
-  const token = cookies["hc_session"];
+  const token = cookies["mp_session"];
 
   if (!token) {
     throw new Response(JSON.stringify({ error: "Not authenticated" }), {
@@ -353,12 +353,12 @@ export async function requireAuth(
 export function setSessionCookie(token: string): string {
   const maxAge = 30 * 24 * 60 * 60; // 30 days in seconds
   const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
-  return `hc_session=${token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${maxAge}${secure}`;
+  return `mp_session=${token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${maxAge}${secure}`;
 }
 
 export function clearSessionCookie(): string {
   const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
-  return `hc_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0${secure}`;
+  return `mp_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0${secure}`;
 }
 ```
 
@@ -629,7 +629,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Parse JWT from cookie
   const cookieHeader = req.headers.cookie ?? "";
   const cookies = parseCookies(cookieHeader);
-  const token = cookies["hc_session"];
+  const token = cookies["mp_session"];
 
   if (!token) {
     return res.status(401).json({ error: "Not authenticated" });
@@ -744,7 +744,7 @@ function parseCookies(cookieHeader: string): Record<string, string> {
 async function getAuthUserId(req: VercelRequest): Promise<number | null> {
   const cookieHeader = req.headers.cookie ?? "";
   const cookies = parseCookies(cookieHeader);
-  const token = cookies["hc_session"];
+  const token = cookies["mp_session"];
   if (!token) return null;
   const payload = await verifyJwt(token);
   return payload?.userId ?? null;
@@ -878,7 +878,7 @@ function parseCookies(cookieHeader: string): Record<string, string> {
 async function getAuthUserId(req: VercelRequest): Promise<number | null> {
   const cookieHeader = req.headers.cookie ?? "";
   const cookies = parseCookies(cookieHeader);
-  const token = cookies["hc_session"];
+  const token = cookies["mp_session"];
   if (!token) return null;
   const payload = await verifyJwt(token);
   return payload?.userId ?? null;
@@ -982,7 +982,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const cookieHeader = req.headers.cookie ?? "";
   const cookies = parseCookies(cookieHeader);
-  const token = cookies["hc_session"];
+  const token = cookies["mp_session"];
   if (!token) return res.status(401).json({ error: "Not authenticated" });
 
   const payload = await verifyJwt(token);
@@ -1032,7 +1032,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const cookieHeader = req.headers.cookie ?? "";
   const cookies = parseCookies(cookieHeader);
-  const token = cookies["hc_session"];
+  const token = cookies["mp_session"];
   if (!token) return res.status(401).json({ error: "Not authenticated" });
 
   const payload = await verifyJwt(token);
@@ -1083,7 +1083,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     grouped[key].push(h);
   }
 
-  let md = `# My Highlight Compendium\n\n*Exported ${new Date().toLocaleDateString()}*\n\n---\n\n`;
+  let md = `# My Mind Palace\n\n*Exported ${new Date().toLocaleDateString()}*\n\n---\n\n`;
   for (const [domain, items] of Object.entries(grouped)) {
     md += `## ${domain}\n\n`;
     for (const h of items) {
@@ -1137,7 +1137,7 @@ function parseCookies(cookieHeader: string): Record<string, string> {
 async function getAuthUserId(req: VercelRequest): Promise<number | null> {
   const cookieHeader = req.headers.cookie ?? "";
   const cookies = parseCookies(cookieHeader);
-  const token = cookies["hc_session"];
+  const token = cookies["mp_session"];
   if (!token) return null;
   const payload = await verifyJwt(token);
   return payload?.userId ?? null;
@@ -1212,7 +1212,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const cookieHeader = req.headers.cookie ?? "";
   const cookies = parseCookies(cookieHeader);
-  const token = cookies["hc_session"];
+  const token = cookies["mp_session"];
   if (!token) return res.status(401).json({ error: "Not authenticated" });
 
   const payload = await verifyJwt(token);
@@ -1257,7 +1257,7 @@ function parseCookies(cookieHeader: string): Record<string, string> {
 async function getAuthUserId(req: VercelRequest): Promise<number | null> {
   const cookieHeader = req.headers.cookie ?? "";
   const cookies = parseCookies(cookieHeader);
-  const token = cookies["hc_session"];
+  const token = cookies["mp_session"];
   if (!token) return null;
   const payload = await verifyJwt(token);
   return payload?.userId ?? null;
@@ -1325,7 +1325,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const cookieHeader = req.headers.cookie ?? "";
   const cookies = parseCookies(cookieHeader);
-  const token = cookies["hc_session"];
+  const token = cookies["mp_session"];
   if (!token) return res.status(401).json({ error: "Not authenticated" });
 
   const payload = await verifyJwt(token);
@@ -1558,7 +1558,7 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import Home from "./pages/Home";
-import Compendium from "./pages/Compendium";
+import MindPalace from "./pages/MindPalace";
 import Settings from "./pages/Settings";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -1588,8 +1588,8 @@ function Router() {
       <Route path="/" component={Home} />
       <Route path="/login" component={Login} />
       <Route path="/register" component={Register} />
-      <Route path="/compendium">
-        <ProtectedRoute component={Compendium} />
+      <Route path="/mind-palace">
+        <ProtectedRoute component={MindPalace} />
       </Route>
       <Route path="/settings">
         <ProtectedRoute component={Settings} />
@@ -1891,7 +1891,7 @@ export default function Login() {
       }
 
       await refetch();
-      navigate("/compendium");
+      navigate("/mind-palace");
     } catch {
       setError("Network error. Please try again.");
       setLoading(false);
@@ -1905,7 +1905,7 @@ export default function Login() {
           <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
             <Highlighter className="w-6 h-6 text-primary" />
           </div>
-          <h1 className="text-2xl font-semibold text-foreground tracking-tight">Compendium</h1>
+          <h1 className="text-2xl font-semibold text-foreground tracking-tight">Mind Palace</h1>
           <p className="text-sm text-muted-foreground mt-1">Sign in to your account</p>
         </div>
 
@@ -2039,7 +2039,7 @@ export default function Register() {
       }
 
       await refetch();
-      navigate("/compendium");
+      navigate("/mind-palace");
     } catch {
       setError("Network error. Please try again.");
       setLoading(false);
@@ -2053,7 +2053,7 @@ export default function Register() {
           <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
             <Highlighter className="w-6 h-6 text-primary" />
           </div>
-          <h1 className="text-2xl font-semibold text-foreground tracking-tight">Compendium</h1>
+          <h1 className="text-2xl font-semibold text-foreground tracking-tight">Mind Palace</h1>
           <p className="text-sm text-muted-foreground mt-1">Create your account</p>
         </div>
 
@@ -2405,7 +2405,7 @@ export default function Settings() {
       <header className="sticky top-0 z-10 bg-background/80 backdrop-blur-xl border-b border-border px-6 py-4">
         <div className="max-w-2xl mx-auto flex items-center gap-4">
           <button
-            onClick={() => navigate("/compendium")}
+            onClick={() => navigate("/mind-palace")}
             className="text-muted-foreground hover:text-foreground transition-colors"
           >
             <ArrowLeft className="w-5 h-5" />
@@ -2707,7 +2707,7 @@ export default function Settings() {
             </div>
             <p className="text-xs text-muted-foreground mt-3">
               A confirmation tooltip will appear briefly to confirm the save. The highlight will
-              appear in your compendium immediately.
+              appear in your Mind Palace immediately.
             </p>
           </div>
         </section>
@@ -2717,7 +2717,7 @@ export default function Settings() {
 }
 ```
 
-- [ ] **11.2** Update `src/pages/Compendium.tsx` -- replace all tRPC calls with fetch-based state management. The key changes:
+- [ ] **11.2** Update `src/pages/MindPalace.tsx` -- replace all tRPC calls with fetch-based state management. The key changes:
 
 1. Remove `import { trpc } from "@/lib/trpc"`
 2. Replace `trpc.highlights.list.useQuery(...)` with a custom `useHighlights` hook using fetch
@@ -2834,7 +2834,7 @@ const handleCreateTag = async (name: string, color: string) => {
 
 - [ ] **11.3** Update `src/pages/Home.tsx` -- replace `import { getLoginUrl } from "@/const"` and change `<a href={getLoginUrl()}>` to `<a href="/login">` (3 occurrences). Also change `<Button asChild>` links to use `onClick={() => navigate("/login")}` or keep as `<a href="/login">`.
 
-- [ ] **11.4** Commit: "feat: replace tRPC with fetch calls in Settings, Compendium, Home pages"
+- [ ] **11.4** Commit: "feat: replace tRPC with fetch calls in Settings, Mind Palace, Home pages"
 
 ---
 
@@ -2846,17 +2846,17 @@ const handleCreateTag = async (name: string, color: string) => {
 
 **File: `extension/background.js`** (complete replacement)
 ```js
-// Background Service Worker — Highlight Compendium (MV3)
+// Background Service Worker — Mind Palace (MV3)
 // Handles: keyboard command relay, context menu, API calls
 
-const DEFAULT_DASHBOARD_URL = "https://your-app.vercel.app";
+const CONFIGURED_DASHBOARD_URL = "(stored in chrome.storage.sync)";
 
 // ─── Context Menu Setup ───────────────────────────────────────────────────────
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
     id: "save-highlight",
-    title: "Save to Compendium",
+    title: "Save to Mind Palace",
     contexts: ["selection"],
   });
 });
@@ -2888,7 +2888,7 @@ function getSettings() {
       (items) => {
         resolve({
           apiToken: items.apiToken || "",
-          dashboardUrl: (items.dashboardUrl || DEFAULT_DASHBOARD_URL).replace(/\/$/, ""),
+          dashboardUrl: (items.dashboardUrl || "").replace(/\/$/, ""),
           theme: items.theme || "dark",
           hasSeenTutorial: items.hasSeenTutorial || false,
         });
@@ -2996,14 +2996,14 @@ async function handleGetRecent() {
 
 **File: `extension/content.js`** (complete replacement)
 ```js
-// Content Script — Highlight Compendium (MV3)
+// Content Script — Mind Palace (MV3)
 // Listens for Ctrl+Shift+S, captures selection, shows tutorial or silent toast
 
 (function () {
   "use strict";
 
-  if (window.__highlightCompendiumLoaded) return;
-  window.__highlightCompendiumLoaded = true;
+  if (window.__mindPalaceLoaded) return;
+  window.__mindPalaceLoaded = true;
 
   // ─── DOM Bridge: Announce extension presence ────────────────────────────────
   document.documentElement.setAttribute("data-hc-extension", "true");
@@ -3137,7 +3137,7 @@ async function handleGetRecent() {
           chrome.runtime.sendMessage({ type: "GET_SETTINGS" }, (response) => {
             const url = response?.dashboardUrl || "";
             if (url) {
-              window.open(`${url}/compendium`, "_blank");
+              window.open(`${url}/mind-palace`, "_blank");
             }
           });
         }
@@ -3229,7 +3229,7 @@ async function handleGetRecent() {
       card.querySelector("#hc-note-btn").addEventListener("click", () => {
         chrome.runtime.sendMessage({ type: "GET_SETTINGS" }, (response) => {
           const url = response?.dashboardUrl || "";
-          if (url) window.open(`${url}/compendium`, "_blank");
+          if (url) window.open(`${url}/mind-palace`, "_blank");
         });
         clearShadow();
       });
@@ -3330,7 +3330,7 @@ async function handleGetRecent() {
         showSilentToast(null);
       }
     } catch (err) {
-      console.error("[Highlight Compendium] Error:", err);
+      console.error("[Mind Palace] Error:", err);
     }
   }
 
@@ -3378,7 +3378,7 @@ async function handleGetRecent() {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Compendium</title>
+  <title>Mind Palace</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -3590,7 +3590,7 @@ async function handleGetRecent() {
   <div class="header" id="header">
     <div class="header-left">
       <div class="logo">\u2726</div>
-      <span class="title">Compendium</span>
+      <span class="title">Mind Palace</span>
     </div>
     <div>
       <button class="icon-btn" id="btn-settings" title="Settings">
@@ -3604,7 +3604,7 @@ async function handleGetRecent() {
   <!-- Onboarding View -->
   <div class="view" id="view-onboarding">
     <div class="onboard-logo">\u2726</div>
-    <span class="title" style="font-size:18px;">Compendium</span>
+    <span class="title" style="font-size:18px;">Mind Palace</span>
     <p class="onboard-tagline">Your knowledge, captured.</p>
     <button class="btn-accent" id="btn-create-account">Create free account</button>
     <div class="divider"><span>already a member?</span></div>
@@ -3649,7 +3649,7 @@ async function handleGetRecent() {
 
     <div class="field">
       <label>Dashboard URL</label>
-      <input type="url" id="input-dashboard-url" placeholder="https://your-app.vercel.app" />
+      <input type="url" id="input-dashboard-url" placeholder="https://mind-palace-v2.vercel.app" />
     </div>
     <div class="field">
       <label>API Token</label>
@@ -3668,10 +3668,10 @@ async function handleGetRecent() {
 
 **File: `extension/popup.js`** (complete replacement)
 ```js
-// Popup Script — Compendium
+// Popup Script — Mind Palace
 
 document.addEventListener("DOMContentLoaded", () => {
-  const DEFAULT_DASHBOARD_URL = "https://your-app.vercel.app";
+  const CONFIGURED_DASHBOARD_URL = "(stored in chrome.storage.sync)";
 
   // ─── Elements ────────────────────────────────────────────────────────────
   const header = document.getElementById("header");
@@ -3791,7 +3791,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   btnCreateAccount.addEventListener("click", () => {
     chrome.runtime.sendMessage({ type: "GET_SETTINGS" }, (response) => {
-      const url = response?.dashboardUrl || DEFAULT_DASHBOARD_URL;
+      const url = response?.dashboardUrl || "";
       chrome.tabs.create({ url: url + "/register" });
       window.close();
     });
@@ -3799,7 +3799,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   btnSignIn.addEventListener("click", () => {
     chrome.runtime.sendMessage({ type: "GET_SETTINGS" }, (response) => {
-      const url = response?.dashboardUrl || DEFAULT_DASHBOARD_URL;
+      const url = response?.dashboardUrl || "";
       chrome.tabs.create({ url: url + "/login" });
       window.close();
     });
@@ -3809,8 +3809,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   btnOpenDashboard.addEventListener("click", () => {
     chrome.runtime.sendMessage({ type: "GET_SETTINGS" }, (response) => {
-      const url = response?.dashboardUrl || DEFAULT_DASHBOARD_URL;
-      chrome.tabs.create({ url: url + "/compendium" });
+      const url = response?.dashboardUrl || "";
+      chrome.tabs.create({ url: url + "/mind-palace" });
       window.close();
     });
   });
@@ -3938,7 +3938,7 @@ Keep the `"<all_urls>"` in the `content_scripts.matches` array (the content scri
 
 **File: `DEPLOY.md`**
 ```markdown
-# Compendium — Deployment Guide
+# Mind Palace — Deployment Guide
 
 ## 1. Database (Neon Postgres)
 
@@ -3958,7 +3958,7 @@ Keep the `"<all_urls>"` in the `content_scripts.matches` array (the content scri
 
 ## 3. Extension Setup
 
-1. Update `DEFAULT_DASHBOARD_URL` in `extension/background.js` and `extension/popup.js` to your Vercel URL
+1. Configure the dashboard URL through extension settings; do not hardcode deployment secrets in source
 2. Load the extension in Chrome/Edge:
    - Navigate to `chrome://extensions`
    - Enable "Developer mode"
@@ -4019,7 +4019,7 @@ npm run build
 | Extension themes (dual) | Tasks 13, 14 | Covered |
 | Dashboard Login page | Task 10 | Covered |
 | Dashboard Register page | Task 10 | Covered |
-| Dashboard Compendium page (fetch migration) | Task 11 | Covered |
+| Dashboard Mind Palace page (fetch migration) | Task 11 | Covered |
 | Dashboard Settings page (fetch + theme toggle) | Task 11 | Covered |
 | Dashboard Home page (link fixes) | Task 11 | Covered |
 | ThemeContext (data-theme, DB persist) | Task 9 | Covered |
@@ -4051,4 +4051,4 @@ npm run build
 - `M:\AI\Knowledge_Area51\src\lib\auth.ts` -- new file; JWT sign/verify and cookie helpers used by every authenticated API route
 - `M:\AI\Knowledge_Area51\src\lib\db.ts` -- new file; Neon HTTP client that all API routes import
 - `M:\AI\Knowledge_Area51\src\contexts\AuthContext.tsx` -- new file; central auth state that the entire React app (routing, pages, theme) depends on
-- `M:\AI\Knowledge_Area51\src\pages\Compendium.tsx` -- largest existing file requiring migration from tRPC to fetch; the most complex rewrite in the frontend
+- `M:\AI\Knowledge_Area51\src\pages\MindPalace.tsx` -- largest existing file requiring migration from tRPC to fetch; the most complex rewrite in the frontend

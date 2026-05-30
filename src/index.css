@@ -120,10 +120,10 @@
   --sidebar-ring: #2e4036;
 }
 
-/* Highlight text serif styling */
+/* Highlight text styling */
 .highlight-text {
-  font-family: "Lora", ui-serif, Georgia, serif;
-  font-style: italic;
+  font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
+  font-style: normal;
   line-height: 1.75;
 }
 

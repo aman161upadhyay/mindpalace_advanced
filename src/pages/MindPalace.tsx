@@ -87,6 +87,7 @@ function HighlightCard({
   tags,
   onClick,
   onUpdated,
+  onDelete,
 }: {
   highlight: {
     id: number;
@@ -102,6 +103,7 @@ function HighlightCard({
   tags: { id: number; name: string; color: string }[];
   onClick: () => void;
   onUpdated: () => void;
+  onDelete: () => void;
 }) {
   const tagIds = parseTagIds(highlight.tagIds);
   const highlightTags = tags.filter((t) => tagIds.includes(t.id));
@@ -113,6 +115,15 @@ function HighlightCard({
       onClick={onClick}
     >
       <div className="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+
+      {/* Delete button */}
+      <button
+        className="absolute top-3 right-3 z-20 opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+        onClick={(e) => { e.stopPropagation(); onDelete(); }}
+        title="Delete highlight"
+      >
+        <Trash2 className="w-3.5 h-3.5" />
+      </button>
 
       {/* Quote text */}
       <blockquote className="highlight-text text-foreground/90 text-[15px] mb-5 leading-relaxed line-clamp-4 relative z-10">
@@ -645,6 +656,7 @@ export default function MindPalace() {
   const [showNewTag, setShowNewTag] = useState(false);
   const [offset, setOffset] = useState(0);
   const [confirmDeleteTag, setConfirmDeleteTag] = useState<{ id: number; name: string } | null>(null);
+  const [confirmDeleteHighlight, setConfirmDeleteHighlight] = useState<number | null>(null);
   const LIMIT = 30;
 
   // Debounce search
@@ -730,6 +742,14 @@ export default function MindPalace() {
     fetchTags();
     setSelectedTagIds((prev) => prev.filter((tid) => tid !== id));
     toast.success(`Tag "${name}" deleted`);
+  };
+
+  const handleDeleteHighlight = async (id: number) => {
+    await fetch(`/api/highlights?id=${id}`, { method: "DELETE", credentials: "include" });
+    setConfirmDeleteHighlight(null);
+    fetchHighlights();
+    fetchDomainStats();
+    toast.success("Highlight deleted");
   };
 
   const highlights = highlightsData?.items ?? [];
@@ -1028,6 +1048,7 @@ export default function MindPalace() {
                         tags={tags}
                         onClick={() => setSelectedHighlightId(h.id)}
                         onUpdated={() => fetchHighlights()}
+                        onDelete={() => setConfirmDeleteHighlight(h.id)}
                       />
                     ))}
                   </div>
@@ -1044,6 +1065,7 @@ export default function MindPalace() {
                   tags={tags}
                   onClick={() => setSelectedHighlightId(h.id)}
                   onUpdated={() => fetchHighlights()}
+                  onDelete={() => setConfirmDeleteHighlight(h.id)}
                 />
               ))}
             </div>
@@ -1097,6 +1119,14 @@ export default function MindPalace() {
         confirmLabel="Delete Tag"
         onConfirm={confirmHandleDeleteTag}
         onCancel={() => setConfirmDeleteTag(null)}
+      />
+      <ConfirmDialog
+        open={confirmDeleteHighlight !== null}
+        title="Delete highlight?"
+        description="This cannot be undone. The highlight will be permanently removed from your Mind Palace."
+        confirmLabel="Delete"
+        onConfirm={() => confirmDeleteHighlight !== null && handleDeleteHighlight(confirmDeleteHighlight)}
+        onCancel={() => setConfirmDeleteHighlight(null)}
       />
     </div>
   );

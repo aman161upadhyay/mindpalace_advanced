@@ -48,7 +48,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const passwordHash = await bcrypt.hash(password, 12);
     const inserted = await db
       .insert(users)
-      .values({ username: trimmedUsername, email: trimmedEmail, passwordHash })
+      .values({ username: trimmedUsername, email: trimmedEmail, passwordHash, dailyEmailEnabled: false })
       .returning({ id: users.id, username: users.username, email: users.email, theme: users.theme });
 
     const user = inserted[0];

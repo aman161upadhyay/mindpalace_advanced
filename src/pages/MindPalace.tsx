@@ -1,4 +1,4 @@
-import { useAuth } from "@/_core/hooks/useAuth";
+import { useAuth } from "@/contexts/AuthContext";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -6,9 +6,13 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { parseTagIds } from "@/types";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import {
   BookOpen,
   Calendar,
+  Check,
+  ChevronLeft,
+  ChevronRight,
   Download,
   ExternalLink,
   Globe,
@@ -21,7 +25,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
 
@@ -82,6 +86,7 @@ function HighlightCard({
   highlight,
   tags,
   onClick,
+  onUpdated,
 }: {
   highlight: {
     id: number;
@@ -96,6 +101,7 @@ function HighlightCard({
   };
   tags: { id: number; name: string; color: string }[];
   onClick: () => void;
+  onUpdated: () => void;
 }) {
   const tagIds = parseTagIds(highlight.tagIds);
   const highlightTags = tags.filter((t) => tagIds.includes(t.id));
@@ -116,7 +122,21 @@ function HighlightCard({
       {/* Tags */}
       <div className="flex flex-wrap gap-1.5 mb-4 relative z-10">
         {highlightTags.map((t) => (
-          <TagChip key={t.id} tag={t} />
+          <TagChip
+            key={t.id}
+            tag={t}
+            onRemove={() => {
+              const updatedTagIds = highlightTags
+                .filter((tag) => tag.id !== t.id)
+                .map((tag) => tag.id);
+              fetch(`/api/highlights?id=${highlight.id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include",
+                body: JSON.stringify({ tagIds: updatedTagIds }),
+              }).then(() => onUpdated());
+            }}
+          />
         ))}
         {highlight.metadataTags && safeParseTags(highlight.metadataTags).map((mt: string) => (
           <span key={mt} className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-primary/10 text-primary border border-primary/20 uppercase tracking-widest">
@@ -129,7 +149,7 @@ function HighlightCard({
       <div className="flex items-center gap-3 text-xs text-muted-foreground/70 relative z-10 font-mono uppercase tracking-wider">
         <div className="flex items-center gap-1 min-w-0 flex-1">
           <Globe className="w-3 h-3 shrink-0" />
-          <span className="truncate">{highlight.domain || new URL(highlight.sourceUrl).hostname}</span>
+          <span className="truncate">{highlight.domain || (() => { try { return new URL(highlight.sourceUrl).hostname; } catch { return highlight.sourceUrl; } })()}</span>
         </div>
         <div className="flex items-center gap-1 shrink-0">
           <Calendar className="w-3 h-3" />
@@ -151,33 +171,51 @@ function HighlightDetailModal({
   onClose,
   onUpdated,
   onDeleted,
+  onTagCreated,
 }: {
   highlightId: number;
   tags: { id: number; name: string; color: string }[];
   onClose: () => void;
   onUpdated: () => void;
   onDeleted: () => void;
+  onTagCreated: () => void;
 }) {
   const [highlight, setHighlight] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const [notes, setNotes] = useState<string>("");
+  const [text, setText] = useState<string>("");
   const [selectedTagIds, setSelectedTagIds] = useState<number[]>([]);
   const [initialized, setInitialized] = useState(false);
+  const [isEditingText, setIsEditingText] = useState(false);
+  const [newTagName, setNewTagName] = useState("");
+  const [creatingTag, setCreatingTag] = useState(false);
 
   useEffect(() => {
+    let isMounted = true;
     (async () => {
-      setIsLoading(true);
-      const res = await fetch(`/api/highlights/${highlightId}`, { credentials: "include" });
-      if (res.ok) setHighlight(await res.json());
-      setIsLoading(false);
+      try {
+        setIsLoading(true);
+        const res = await fetch(`/api/highlights?id=${highlightId}`, { credentials: "include" });
+        if (res.ok) {
+          const data = await res.json();
+          if (isMounted) setHighlight(data);
+        }
+      } catch (err) {
+        console.error("Failed to load highlight:", err);
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
     })();
+    return () => { isMounted = false; };
   }, [highlightId]);
 
   if (highlight && !initialized) {
     setNotes(highlight.notes ?? "");
+    setText(highlight.text ?? "");
     setSelectedTagIds(parseTagIds(highlight.tagIds));
     setInitialized(true);
   }
@@ -190,150 +228,265 @@ function HighlightDetailModal({
 
   const handleSave = async () => {
     setSaving(true);
-    await fetch(`/api/highlights/${highlightId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ notes: notes || null, tagIds: selectedTagIds }),
-    });
-    setSaving(false);
-    onUpdated();
-    toast.success("Highlight updated");
+    try {
+      const res = await fetch(`/api/highlights?id=${highlightId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ text: text || undefined, notes: notes || null, tagIds: selectedTagIds }),
+      });
+      if (!res.ok) throw new Error("Failed to update");
+      setIsEditingText(false);
+      onUpdated();
+      toast.success("Highlight updated");
+    } catch (err) {
+      toast.error("Failed to update highlight");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleDelete = async () => {
-    if (confirm("Delete this highlight? This cannot be undone.")) {
-      setDeleting(true);
-      await fetch(`/api/highlights/${highlightId}`, { method: "DELETE", credentials: "include" });
-      setDeleting(false);
-      onDeleted();
-      toast.success("Highlight deleted");
-      onClose();
+    setDeleting(true);
+    await fetch(`/api/highlights?id=${highlightId}`, { method: "DELETE", credentials: "include" });
+    setDeleting(false);
+    onDeleted();
+    toast.success("Highlight deleted");
+    onClose();
+  };
+
+  const handleCreateTag = async () => {
+    if (!newTagName.trim()) return;
+    setCreatingTag(true);
+    const color = TAG_COLORS[Math.floor(Math.random() * TAG_COLORS.length)];
+    const res = await fetch("/api/tags", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ name: newTagName.trim(), color }),
+    });
+    if (res.ok) {
+      const newTag = await res.json();
+      onTagCreated();
+      
+      const updatedTagIds = [...selectedTagIds, newTag.id];
+      setSelectedTagIds(updatedTagIds);
+      setNewTagName("");
+      
+      // Auto-save the highlight to attach the tag immediately
+      await fetch(`/api/highlights?id=${highlightId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ tagIds: updatedTagIds }),
+      });
+      onUpdated();
+      
+      toast.success("Tag created & attached");
+    } else {
+      toast.error("Failed to create tag");
     }
+    setCreatingTag(false);
   };
 
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-card border-border">
-        <DialogHeader>
-          <DialogTitle className="text-foreground flex items-center gap-2">
-            <Highlighter className="w-4 h-4 text-primary" />
-            Highlight Detail
+      <DialogContent className="max-w-3xl w-full max-h-[85vh] overflow-hidden flex flex-col p-0 gap-0 bg-card border-border shadow-2xl shadow-primary/5 rounded-3xl">
+        <DialogHeader className="px-8 pt-8 pb-4 border-b border-border/50 shrink-0">
+          <DialogTitle className="text-foreground flex items-center gap-2 font-serif italic text-2xl">
+            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+              <Highlighter className="w-4 h-4 text-primary" />
+            </div>
+            Review Highlight
           </DialogTitle>
         </DialogHeader>
 
-        {isLoading ? (
-          <div className="space-y-3">
-            <Skeleton className="h-24 w-full" />
-            <Skeleton className="h-4 w-2/3" />
-            <Skeleton className="h-4 w-1/2" />
-          </div>
-        ) : highlight ? (
-          <div className="space-y-5">
-            {/* Highlight text */}
-            <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
-              <blockquote className="highlight-text text-foreground/90 leading-relaxed text-sm">
-                &ldquo;{highlight.text}&rdquo;
-              </blockquote>
+        <div className="flex-1 overflow-y-auto px-8 py-6 space-y-8">
+          {isLoading ? (
+            <div className="space-y-4">
+              <Skeleton className="h-32 w-full rounded-2xl" />
+              <Skeleton className="h-4 w-2/3" />
+              <Skeleton className="h-4 w-1/2" />
             </div>
-
-            {/* Source */}
-            <div className="space-y-1.5">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Source</p>
-              <div className="flex items-start gap-2">
-                <Globe className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
-                <div className="min-w-0">
-                  <p className="text-sm font-medium truncate">{highlight.pageTitle || highlight.domain}</p>
-                  <a
-                    href={highlight.sourceUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs text-primary hover:underline flex items-center gap-1 mt-0.5"
+          ) : highlight ? (
+            <>
+              {/* Highlight text */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold text-primary uppercase tracking-widest">
+                    Captured Text
+                  </p>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 px-3 text-xs rounded-full bg-secondary/50 hover:bg-primary/10 hover:text-primary transition-colors"
+                    onClick={() => setIsEditingText(!isEditingText)}
                   >
-                    {highlight.sourceUrl.length > 60
-                      ? highlight.sourceUrl.slice(0, 60) + "\u2026"
-                      : highlight.sourceUrl}
-                    <ExternalLink className="w-3 h-3" />
-                  </a>
+                    {isEditingText ? "Cancel Edit" : "Edit Highlight"}
+                  </Button>
                 </div>
-              </div>
-            </div>
-
-            {/* Date */}
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Calendar className="w-4 h-4" />
-              <span>Saved on {new Date(highlight.createdAt).toLocaleString()}</span>
-            </div>
-
-            {/* Tags */}
-            <div className="space-y-2">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Tags</p>
-              <div className="flex flex-wrap gap-2">
-                {tags.map((t) => (
-                  <TagChip
-                    key={t.id}
-                    tag={t}
-                    selected={selectedTagIds.includes(t.id)}
-                    onClick={() => toggleTag(t.id)}
+                
+                {isEditingText ? (
+                  <Textarea
+                    value={text}
+                    onChange={(e) => setText(e.target.value)}
+                    className="min-h-[200px] bg-secondary/30 border-border focus:border-primary/50 text-[15px] leading-relaxed resize-y p-5 rounded-2xl shadow-inner focus-visible:ring-1 focus-visible:ring-primary/30"
                   />
-                ))}
-                {tags.length === 0 && (
-                  <p className="text-xs text-muted-foreground">No tags yet. Create tags in Settings.</p>
+                ) : (
+                  <div className="p-6 md:p-8 rounded-2xl bg-gradient-to-br from-primary/5 to-transparent border border-primary/10 shadow-sm relative group max-h-[40vh] overflow-y-auto custom-scrollbar">
+                    <blockquote className="highlight-text text-foreground/90 text-lg md:text-xl">
+                      &ldquo;{text}&rdquo;
+                    </blockquote>
+                  </div>
                 )}
               </div>
-            </div>
 
-            {/* Auto Tags */}
-            {highlight.metadataTags && safeParseTags(highlight.metadataTags).length > 0 && (
-              <div className="space-y-2">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Auto Tags</p>
-                <div className="flex flex-wrap gap-2">
-                  {safeParseTags(highlight.metadataTags).map((mt: string) => (
-                    <span key={mt} className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary border border-primary/20 uppercase tracking-widest">
-                      {mt}
-                    </span>
-                  ))}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* Meta details */}
+                <div className="space-y-6">
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">Source</p>
+                    <div className="flex items-start gap-2.5 p-4 rounded-2xl bg-secondary/30 border border-border/50">
+                      <Globe className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-foreground truncate">{highlight.pageTitle || highlight.domain}</p>
+                        <a
+                          href={highlight.sourceUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-muted-foreground hover:text-primary transition-colors flex items-center gap-1.5 mt-1"
+                        >
+                          <span className="truncate max-w-[200px] inline-block">{highlight.sourceUrl}</span>
+                          <ExternalLink className="w-3 h-3 shrink-0" />
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">Date</p>
+                    <div className="flex items-center gap-2 text-sm text-foreground p-3 rounded-xl bg-secondary/30 border border-border/50 w-fit">
+                      <Calendar className="w-4 h-4 text-primary" />
+                      {new Date(highlight.createdAt).toLocaleString()}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Notes & Tags */}
+                <div className="space-y-6 flex flex-col h-full">
+                  <div className="space-y-2 flex-1">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">Personal Notes</p>
+                    <Textarea
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                      placeholder="Add your thoughts, context, or connections..."
+                      className="h-[120px] bg-secondary/30 border-border focus:border-primary/50 resize-none text-sm p-4 rounded-2xl shadow-inner focus-visible:ring-1 focus-visible:ring-primary/30"
+                    />
+                  </div>
+
+                  <div className="space-y-3">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">Tags</p>
+                    <div className="flex flex-col gap-3 p-4 rounded-2xl bg-secondary/30 border border-border/50 min-h-[60px]">
+                      <div className="flex flex-wrap gap-2">
+                        {tags.map((t) => (
+                          <TagChip
+                            key={t.id}
+                            tag={t}
+                            selected={selectedTagIds.includes(t.id)}
+                            onClick={() => toggleTag(t.id)}
+                          />
+                        ))}
+                        {tags.length === 0 && (
+                          <p className="text-xs text-muted-foreground self-center">No tags yet.</p>
+                        )}
+                      </div>
+                      
+                      <div className="flex items-center gap-2 mt-1">
+                        <Input
+                          value={newTagName}
+                          onChange={(e) => setNewTagName(e.target.value)}
+                          onKeyDown={(e) => e.key === "Enter" && handleCreateTag()}
+                          placeholder="Type a new tag & press Enter..."
+                          className="h-8 text-xs bg-background/50 border-border/50 focus-visible:ring-1 focus-visible:ring-primary/30"
+                          disabled={creatingTag}
+                        />
+                        <Button 
+                          size="sm" 
+                          variant="secondary" 
+                          className="h-8 px-3 text-xs"
+                          onClick={handleCreateTag}
+                          disabled={!newTagName.trim() || creatingTag}
+                        >
+                          {creatingTag ? <Loader2 className="w-3 h-3 animate-spin" /> : "Add"}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {highlight.metadataTags && safeParseTags(highlight.metadataTags).length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">Auto Tags</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {safeParseTags(highlight.metadataTags).map((mt: string) => (
+                          <span key={mt} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-primary/10 text-primary border border-primary/20 uppercase tracking-widest shadow-sm">
+                            {mt}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
-            )}
+            </>
+          ) : null}
+        </div>
 
-            {/* Notes */}
-            <div className="space-y-2">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Personal Notes</p>
-              <Textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Add your thoughts, context, or connections\u2026"
-                className="min-h-[100px] bg-secondary/50 border-border resize-none text-sm"
-              />
-            </div>
-
-            {/* Actions */}
-            <div className="flex items-center justify-between pt-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                onClick={handleDelete}
-                disabled={deleting}
-              >
-                <Trash2 className="w-3.5 h-3.5 mr-1.5" />
-                Delete
-              </Button>
-              <Button
-                size="sm"
-                onClick={handleSave}
-                disabled={saving}
-              >
-                {saving ? (
-                  <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
-                ) : null}
-                Save Changes
-              </Button>
-            </div>
+        {/* Actions Footer */}
+        <div className="px-8 py-5 border-t border-border/50 bg-secondary/10 shrink-0 flex items-center justify-between">
+          <Button
+            variant="ghost"
+            size="default"
+            className="text-destructive hover:text-destructive hover:bg-destructive/10 rounded-full px-6"
+            onClick={() => setShowDeleteConfirm(true)}
+            disabled={deleting || isLoading}
+          >
+            <Trash2 className="w-4 h-4 mr-2" />
+            Delete Highlight
+          </Button>
+          <div className="flex gap-3">
+            <Button
+              variant="outline"
+              size="default"
+              className="rounded-full px-6 bg-background"
+              onClick={onClose}
+              disabled={saving}
+            >
+              Close
+            </Button>
+            <Button
+              size="default"
+              className="rounded-full px-8 shadow-lg shadow-primary/20 magnetic-btn"
+              onClick={handleSave}
+              disabled={saving || isLoading}
+            >
+              {saving ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Check className="w-4 h-4 mr-2" />
+              )}
+              Save Details
+            </Button>
           </div>
-        ) : null}
+        </div>
       </DialogContent>
+      <ConfirmDialog
+        open={showDeleteConfirm}
+        title="Delete highlight?"
+        description="This cannot be undone. The highlight will be permanently removed from your Mind Palace."
+        confirmLabel="Delete"
+        onConfirm={() => { setShowDeleteConfirm(false); handleDelete(); }}
+        onCancel={() => setShowDeleteConfirm(false)}
+      />
     </Dialog>
   );
 }
@@ -481,24 +634,28 @@ export default function MindPalace() {
   const { user, isAuthenticated, loading } = useAuth();
   const [, navigate] = useLocation();
 
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [selectedTagId, setSelectedTagId] = useState<number | undefined>();
+  const [selectedTagIds, setSelectedTagIds] = useState<number[]>([]);
+  const [selectedMetadataTags, setSelectedMetadataTags] = useState<string[]>([]);
   const [selectedDomain, setSelectedDomain] = useState<string | undefined>();
   const [selectedHighlightId, setSelectedHighlightId] = useState<number | null>(null);
   const [showExport, setShowExport] = useState(false);
   const [showNewTag, setShowNewTag] = useState(false);
   const [offset, setOffset] = useState(0);
+  const [confirmDeleteTag, setConfirmDeleteTag] = useState<{ id: number; name: string } | null>(null);
   const LIMIT = 30;
 
   // Debounce search
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleSearchChange = useCallback((val: string) => {
     setSearch(val);
-    const t = setTimeout(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
       setDebouncedSearch(val);
       setOffset(0);
     }, 300);
-    return () => clearTimeout(t);
   }, []);
 
   // ─── Data fetching (fetch-based) ────────────────────────────────────────────
@@ -511,7 +668,8 @@ export default function MindPalace() {
     try {
       const params = new URLSearchParams();
       if (debouncedSearch) params.set("search", debouncedSearch);
-      if (selectedTagId) params.set("tagId", String(selectedTagId));
+      if (selectedTagIds.length) params.set("tagIds", selectedTagIds.join(","));
+      if (selectedMetadataTags.length) params.set("metadataTag", selectedMetadataTags.join(","));
       if (selectedDomain) params.set("domain", selectedDomain);
       params.set("page", String(Math.floor(offset / LIMIT) + 1));
       const res = await fetch(`/api/highlights?${params}`, { credentials: "include" });
@@ -521,7 +679,7 @@ export default function MindPalace() {
     } finally {
       setHighlightsLoading(false);
     }
-  }, [debouncedSearch, selectedTagId, selectedDomain, offset]);
+  }, [debouncedSearch, selectedTagIds, selectedMetadataTags, selectedDomain, offset]);
 
   useEffect(() => { fetchHighlights(); }, [fetchHighlights]);
 
@@ -547,13 +705,31 @@ export default function MindPalace() {
   }, []);
   useEffect(() => { fetchDomainStats(); }, [fetchDomainStats]);
 
+  const [allMetadataTags, setAllMetadataTags] = useState<string[]>([]);
+  const fetchMetadataTags = useCallback(async () => {
+    try {
+      const res = await fetch("/api/highlights?action=metadata-tags", { credentials: "include" });
+      if (res.ok) setAllMetadataTags(await res.json());
+    } catch {
+      // ignore network errors
+    }
+  }, []);
+  useEffect(() => { fetchMetadataTags(); }, [fetchMetadataTags]);
+
   // ─── Actions ─────────────────────────────────────────────────────────────────
 
-  const handleDeleteTag = async (id: number) => {
+  const handleDeleteTag = (id: number, name: string) => {
+    setConfirmDeleteTag({ id, name });
+  };
+
+  const confirmHandleDeleteTag = async () => {
+    if (!confirmDeleteTag) return;
+    const { id, name } = confirmDeleteTag;
+    setConfirmDeleteTag(null);
     await fetch(`/api/tags/${id}`, { method: "DELETE", credentials: "include" });
     fetchTags();
-    if (selectedTagId === id) setSelectedTagId(undefined);
-    toast.success("Tag deleted");
+    setSelectedTagIds((prev) => prev.filter((tid) => tid !== id));
+    toast.success(`Tag "${name}" deleted`);
   };
 
   const highlights = highlightsData?.items ?? [];
@@ -570,7 +746,7 @@ export default function MindPalace() {
 
   // Group highlights by domain for display
   const grouped = useMemo(() => {
-    if (selectedDomain || debouncedSearch || selectedTagId) return null; // flat list when filtering
+    if (selectedDomain || debouncedSearch || selectedTagIds.length || selectedMetadataTags.length) return null; // flat list when filtering
     const map: Record<string, typeof highlights> = {};
     for (const h of sortedHighlights) {
       const key = h.domain || "Other";
@@ -578,7 +754,7 @@ export default function MindPalace() {
       map[key].push(h);
     }
     return map;
-  }, [highlights, selectedDomain, debouncedSearch, selectedTagId]);
+  }, [highlights, selectedDomain, debouncedSearch, selectedTagIds, selectedMetadataTags]);
 
   if (loading) {
     return (
@@ -601,21 +777,21 @@ export default function MindPalace() {
   return (
     <div className="min-h-screen bg-background flex">
       {/* Sidebar */}
-      <aside className="w-64 shrink-0 border-r border-border bg-sidebar flex flex-col h-screen sticky top-0">
+      <aside className={`shrink-0 border-r border-border bg-sidebar flex flex-col h-screen sticky top-0 transition-all duration-300 overflow-hidden ${sidebarOpen ? "w-64" : "w-0 border-r-0"}`}>
         {/* Logo */}
         <div className="p-4 border-b border-border">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-md bg-primary flex items-center justify-center">
+          <div className="flex items-center gap-2 cursor-pointer group" onClick={() => navigate("/")}>
+            <div className="w-7 h-7 rounded-md bg-primary flex items-center justify-center group-hover:scale-105 transition-transform">
               <Highlighter className="w-3.5 h-3.5 text-primary-foreground" />
             </div>
-            <span className="font-semibold text-sm tracking-tight">Mind Palace</span>
+            <span className="font-semibold text-sm tracking-tight group-hover:text-primary transition-colors">Mind Palace</span>
           </div>
         </div>
 
         {/* Nav */}
         <nav className="p-3 space-y-1">
           <button
-            onClick={() => { setSelectedTagId(undefined); setSelectedDomain(undefined); setSearch(""); setDebouncedSearch(""); }}
+            onClick={() => { setSelectedTagIds([]); setSelectedMetadataTags([]); setSelectedDomain(undefined); setSearch(""); setDebouncedSearch(""); }}
             className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm hover:bg-sidebar-accent transition-colors text-sidebar-foreground"
           >
             <BookOpen className="w-4 h-4" />
@@ -664,16 +840,18 @@ export default function MindPalace() {
               <div
                 key={t.id}
                 className={`group flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs cursor-pointer transition-colors ${
-                  selectedTagId === t.id
+                  selectedTagIds.includes(t.id)
                     ? "bg-primary/10"
                     : "hover:bg-sidebar-accent"
                 }`}
-                onClick={() => setSelectedTagId(selectedTagId === t.id ? undefined : t.id)}
+                onClick={() => setSelectedTagIds((prev) =>
+                  prev.includes(t.id) ? prev.filter((id) => id !== t.id) : [...prev, t.id]
+                )}
               >
                 <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: t.color }} />
                 <span
                   className="flex-1 truncate"
-                  style={{ color: selectedTagId === t.id ? t.color : undefined }}
+                  style={{ color: selectedTagIds.includes(t.id) ? t.color : undefined }}
                 >
                   {t.name}
                 </span>
@@ -681,7 +859,7 @@ export default function MindPalace() {
                   className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all"
                   onClick={(e) => {
                     e.stopPropagation();
-                    handleDeleteTag(t.id);
+                    handleDeleteTag(t.id, t.name);
                   }}
                 >
                   <X className="w-3 h-3" />
@@ -693,6 +871,30 @@ export default function MindPalace() {
             )}
           </div>
         </div>
+
+        {/* Auto Topics */}
+        {allMetadataTags.length > 0 && (
+          <div className="px-3 py-2 border-t border-border/50">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-3 mb-2">Topics</p>
+            <div className="flex flex-wrap gap-1.5 px-3">
+              {allMetadataTags.map((mt) => (
+                <button
+                  key={mt}
+                  onClick={() => setSelectedMetadataTags((prev) =>
+                    prev.includes(mt) ? prev.filter((t) => t !== mt) : [...prev, mt]
+                  )}
+                  className={`px-2.5 py-0.5 rounded-full text-xs font-medium transition-colors border ${
+                    selectedMetadataTags.includes(mt)
+                      ? "bg-primary/20 text-primary border-primary/40"
+                      : "bg-secondary/50 text-muted-foreground border-border hover:text-foreground hover:bg-secondary"
+                  }`}
+                >
+                  {mt}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Bottom actions */}
         <div className="p-3 border-t border-border space-y-1">
@@ -718,10 +920,17 @@ export default function MindPalace() {
         {/* Header */}
         <header className="sticky top-0 z-10 bg-background/80 backdrop-blur-xl border-b border-border px-6 py-4">
           <div className="flex items-center gap-4">
+            <button
+              onClick={() => setSidebarOpen((o) => !o)}
+              className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+              title={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
+            >
+              {sidebarOpen ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+            </button>
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
-                placeholder="Search highlights, notes, sources\u2026"
+                placeholder="Search your highlights…"
                 value={search}
                 onChange={(e) => handleSearchChange(e.target.value)}
                 className="pl-9 bg-secondary/50 border-border focus:border-primary/50"
@@ -738,15 +947,26 @@ export default function MindPalace() {
           </div>
 
           {/* Active filters */}
-          {(selectedTagId || selectedDomain) && (
-            <div className="flex items-center gap-2 mt-3">
-              <span className="text-xs text-muted-foreground">Filtering by:</span>
-              {selectedTagId && (
-                <TagChip
-                  tag={tags.find((t) => t.id === selectedTagId) ?? { id: 0, name: "Tag", color: "#6366f1" }}
-                  onRemove={() => setSelectedTagId(undefined)}
-                />
-              )}
+          {(selectedTagIds.length > 0 || selectedMetadataTags.length > 0 || selectedDomain) && (
+            <div className="flex flex-wrap items-center gap-2 mt-3">
+              <span className="text-xs text-muted-foreground shrink-0">Filtering by:</span>
+              {selectedTagIds.map((id) => {
+                const tag = tags.find((t) => t.id === id);
+                if (!tag) return null;
+                return (
+                  <TagChip
+                    key={id}
+                    tag={tag}
+                    onRemove={() => setSelectedTagIds((prev) => prev.filter((tid) => tid !== id))}
+                  />
+                );
+              })}
+              {selectedMetadataTags.map((mt) => (
+                <span key={mt} className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary border border-primary/20">
+                  {mt}
+                  <X className="w-2.5 h-2.5 cursor-pointer hover:opacity-70" onClick={() => setSelectedMetadataTags((prev) => prev.filter((t) => t !== mt))} />
+                </span>
+              ))}
               {selectedDomain && (
                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-secondary border border-border text-foreground">
                   <Globe className="w-3 h-3" />
@@ -759,9 +979,10 @@ export default function MindPalace() {
         </header>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6">
-          {highlightsLoading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        <div className="flex-1 overflow-y-auto p-6 flex flex-col items-center">
+          <div className="w-full max-w-3xl">
+            {highlightsLoading ? (
+              <div className="flex flex-col gap-4">
               {Array.from({ length: 6 }).map((_, i) => (
                 <div key={i} className="p-5 rounded-xl bg-card border border-border space-y-3">
                   <Skeleton className="h-4 w-full" />
@@ -777,12 +998,12 @@ export default function MindPalace() {
                 <Highlighter className="w-8 h-8 text-primary/60" />
               </div>
               <h3 className="text-lg font-semibold mb-2">
-                {debouncedSearch || selectedTagId || selectedDomain
+                {debouncedSearch || selectedTagIds.length || selectedMetadataTags.length || selectedDomain
                   ? "No highlights match your filters"
                   : "Your mind palace is empty"}
               </h3>
               <p className="text-sm text-muted-foreground max-w-sm">
-                {debouncedSearch || selectedTagId || selectedDomain
+                {debouncedSearch || selectedTagIds.length || selectedMetadataTags.length || selectedDomain
                   ? "Try adjusting your search or removing filters."
                   : "Install the Chrome extension, select text on any webpage, and press Ctrl+Shift+S to start capturing knowledge."}
               </p>
@@ -799,13 +1020,14 @@ export default function MindPalace() {
                     </h2>
                     <span className="text-xs text-muted-foreground">({items.length})</span>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                  <div className="flex flex-col gap-4">
                     {items.map((h) => (
                       <HighlightCard
                         key={h.id}
                         highlight={h}
                         tags={tags}
                         onClick={() => setSelectedHighlightId(h.id)}
+                        onUpdated={() => fetchHighlights()}
                       />
                     ))}
                   </div>
@@ -814,13 +1036,14 @@ export default function MindPalace() {
             </div>
           ) : (
             // Flat list (when filtering)
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            <div className="flex flex-col gap-4">
               {sortedHighlights.map((h) => (
                 <HighlightCard
                   key={h.id}
                   highlight={h}
                   tags={tags}
                   onClick={() => setSelectedHighlightId(h.id)}
+                  onUpdated={() => fetchHighlights()}
                 />
               ))}
             </div>
@@ -850,6 +1073,7 @@ export default function MindPalace() {
               </Button>
             </div>
           )}
+          </div>
         </div>
       </main>
 
@@ -861,10 +1085,19 @@ export default function MindPalace() {
           onClose={() => setSelectedHighlightId(null)}
           onUpdated={() => fetchHighlights()}
           onDeleted={() => fetchHighlights()}
+          onTagCreated={() => fetchTags()}
         />
       )}
       {showExport && <ExportModal onClose={() => setShowExport(false)} />}
       {showNewTag && <NewTagModal onClose={() => setShowNewTag(false)} onCreated={() => fetchTags()} />}
+      <ConfirmDialog
+        open={confirmDeleteTag !== null}
+        title={`Delete "${confirmDeleteTag?.name}"?`}
+        description="This tag will be removed from all highlights. This cannot be undone."
+        confirmLabel="Delete Tag"
+        onConfirm={confirmHandleDeleteTag}
+        onCancel={() => setConfirmDeleteTag(null)}
+      />
     </div>
   );
 }

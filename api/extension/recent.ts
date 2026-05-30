@@ -9,7 +9,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
 
   try {
-    const apiToken = req.query.apiToken as string;
+    const authHeader = req.headers.authorization || "";
+    const apiToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
     if (!apiToken) return res.status(401).json({ error: "API token is required" });
 
     const tokenRows = await db.select().from(apiTokens).where(eq(apiTokens.token, apiToken)).limit(1);

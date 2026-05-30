@@ -7,13 +7,23 @@ interface ThemeContextValue {
 }
 
 const ThemeContext = createContext<ThemeContextValue>({
-  theme: "dark",
+  theme: "light",
   toggleTheme: () => {},
 });
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  const [theme, setTheme] = useState<"dark" | "light">("dark");
+  const [theme, setTheme] = useState<"dark" | "light">(() => {
+    const saved = typeof window !== "undefined" ? localStorage.getItem("theme") : null;
+    const initial: "dark" | "light" = (saved === "dark" || saved === "light") ? saved : "light";
+    // Apply synchronously so CSS variables are ready before first paint
+    if (typeof document !== "undefined") {
+      document.documentElement.setAttribute("data-theme", initial);
+      document.documentElement.classList.remove("dark", "light");
+      document.documentElement.classList.add(initial);
+    }
+    return initial;
+  });
 
   useEffect(() => {
     if (user?.theme === "dark" || user?.theme === "light") {
@@ -30,6 +40,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const toggleTheme = async () => {
     const newTheme = theme === "dark" ? "light" : "dark";
     setTheme(newTheme);
+    localStorage.setItem("theme", newTheme);
 
     try {
       await fetch("/api/auth/me", {

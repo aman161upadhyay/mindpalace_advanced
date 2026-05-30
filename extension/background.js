@@ -1,4 +1,6 @@
-// Background Service Worker — Mind Palace v2 (MV3)
+// Background Service Worker — Mind Palace (MV3)
+
+const DEFAULT_DASHBOARD_URL = "https://mindpalace-bice.vercel.app";
 
 // Helper to get dynamic settings from storage
 function getSettings() {
@@ -6,7 +8,7 @@ function getSettings() {
     chrome.storage.sync.get(["apiToken", "dashboardUrl"], (items) => {
       resolve({
         apiToken: items.apiToken || "",
-        dashboardUrl: (items.dashboardUrl || "").replace(/\/$/, "")
+        dashboardUrl: (items.dashboardUrl || DEFAULT_DASHBOARD_URL).replace(/\/$/, "")
       });
     });
   });
@@ -95,9 +97,6 @@ async function handleSaveHighlight(payload) {
   if (!apiToken) {
     throw new Error("Missing API token! Please configure the extension on the settings page.");
   }
-  if (!dashboardUrl) {
-    throw new Error("Missing dashboard URL! Please configure the extension on the settings page.");
-  }
 
   const response = await fetch(`${dashboardUrl}/api/extension/save`, {
     method: "POST",
@@ -129,11 +128,11 @@ async function handleSaveHighlight(payload) {
 async function handleGetRecent() {
   try {
     const { apiToken, dashboardUrl } = await getSettings();
-    if (!apiToken || !dashboardUrl) return [];
+    if (!apiToken) return [];
     
     const response = await fetch(
-      `${dashboardUrl}/api/extension/recent?apiToken=${encodeURIComponent(apiToken)}`,
-      { method: "GET" }
+      `${dashboardUrl}/api/extension/recent`,
+      { method: "GET", headers: { "Authorization": `Bearer ${apiToken}` } }
     );
     if (!response.ok) return [];
     return await response.json();

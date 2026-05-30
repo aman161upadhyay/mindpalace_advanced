@@ -108,7 +108,13 @@ export default function Login() {
           </button>
         </form>
 
-        <p className="text-center text-sm text-muted-foreground mt-6">
+        <p className="text-center text-sm text-muted-foreground mt-4">
+          <button onClick={() => navigate("/forgot-password")} className="text-primary/70 hover:text-primary hover:underline font-medium transition-colors">
+            Forgot your password?
+          </button>
+        </p>
+
+        <p className="text-center text-sm text-muted-foreground mt-3">
           Don't have an account?{" "}
           <button onClick={() => navigate("/register")} className="text-primary hover:underline font-medium">
             Create one

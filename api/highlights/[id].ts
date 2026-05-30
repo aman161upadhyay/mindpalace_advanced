@@ -12,16 +12,37 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const userId = await getAuthUserIdFromVercelReq(req);
     if (!userId) return res.status(401).json({ error: "Not authenticated" });
 
-    const id = Number(req.query.id);
-    if (!id || isNaN(id)) return res.status(400).json({ error: "Invalid highlight ID" });
+    let id = Number(req.query.id);
+    if (!id || isNaN(id)) {
+      // Fallback: extract from URL manually in case Vercel rewrites stripped the path segment mapping
+      const pathPart = req.url?.split('?')[0].split('/').pop();
+      id = Number(pathPart);
+    }
+    
+    if (!id || isNaN(id)) return res.status(400).json({ error: `Invalid highlight ID: ${req.url}` });
+
+    if (req.method === "GET") {
+      const existing = await db
+        .select()
+        .from(highlights)
+        .where(and(eq(highlights.id, id), eq(highlights.userId, userId)))
+        .limit(1);
+      if (existing.length === 0) return res.status(404).json({ error: "Highlight not found" });
+      return res.status(200).json(existing[0]);
+    }
 
     if (req.method === "PATCH") {
-      const { notes, tagIds } = req.body ?? {};
+      const { notes, tagIds, text } = req.body ?? {};
       if (notes !== undefined && (typeof notes !== "string" || notes.length > 100000)) {
         return res.status(400).json({ error: "Notes must be a string of 100,000 characters or fewer" });
       }
+      if (text !== undefined && (typeof text !== "string" || text.length === 0 || text.length > 50000)) {
+        return res.status(400).json({ error: "Text must be a valid string of 50,000 characters or fewer" });
+      }
+
       const updateData: Record<string, unknown> = { updatedAt: new Date() };
       if (notes !== undefined) updateData.notes = notes;
+      if (text !== undefined) updateData.text = text;
       if (tagIds !== undefined) {
         if (!Array.isArray(tagIds) || !tagIds.every((t) => typeof t === "number" && Number.isInteger(t) && t > 0)) {
           return res.status(400).json({ error: "tagIds must be an array of positive integers" });

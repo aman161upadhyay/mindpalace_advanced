@@ -1,4 +1,4 @@
-// Content Script — Mind Palace v2 (MV3)
+// Content Script — Mind Palace (MV3)
 // Fixes:
 //  1. CSP-safe tooltip: uses Shadow DOM with inline styles only (no external resources)
 //  2. Floating button uses position:fixed (not absolute) so it works on Gemini/Google

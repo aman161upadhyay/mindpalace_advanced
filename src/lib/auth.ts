@@ -52,7 +52,7 @@ function parseCookies(cookieHeader: string): Record<string, string> {
 export async function requireAuth(req: Request): Promise<JwtPayload> {
   const cookieHeader = req.headers.get("cookie") ?? "";
   const cookies = parseCookies(cookieHeader);
-  const token = cookies["mp_session"];
+  const token = cookies["hc_session"];
 
   if (!token) {
     throw new Response(JSON.stringify({ error: "Not authenticated" }), {
@@ -75,12 +75,12 @@ export async function requireAuth(req: Request): Promise<JwtPayload> {
 export function setSessionCookie(token: string): string {
   const maxAge = 30 * 24 * 60 * 60;
   const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
-  return `mp_session=${token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${maxAge}${secure}`;
+  return `hc_session=${token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${maxAge}${secure}`;
 }
 
 export function clearSessionCookie(): string {
   const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
-  return `mp_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0${secure}`;
+  return `hc_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0${secure}`;
 }
 
 export async function getAuthUserIdFromVercelReq(req: VercelRequest): Promise<number | null> {
@@ -91,7 +91,7 @@ export async function getAuthUserIdFromVercelReq(req: VercelRequest): Promise<nu
     const k = key?.trim();
     if (k) cookies[k] = decodeURIComponent(rest.join("=").trim());
   }
-  const token = cookies["mp_session"];
+  const token = cookies["hc_session"];
   if (!token) return null;
   const payload = await verifyJwt(token);
   return payload?.userId ?? null;

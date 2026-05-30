@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { randomBytes } from "crypto";
 import { db } from "../../src/lib/db";
 import { apiTokens } from "../../src/schema";
@@ -29,9 +29,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(201).json(inserted[0]);
     }
 
+    if (req.method === "DELETE") {
+      const id = Number(req.query.id);
+      if (!id || isNaN(id)) return res.status(400).json({ error: "Invalid token ID" });
+      await db.delete(apiTokens).where(and(eq(apiTokens.id, id), eq(apiTokens.userId, userId)));
+      return res.status(200).json({ success: true });
+    }
+
     return res.status(405).json({ error: "Method not allowed" });
   } catch (err: unknown) {
-    console.error("[tokens/index] Error:", err);
+    console.error("[tokens] Error:", err);
     return res.status(500).json({ error: "Internal server error" });
   }
 }

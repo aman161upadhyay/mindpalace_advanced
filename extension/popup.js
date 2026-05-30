@@ -1,4 +1,7 @@
-// Popup Script — Mind Palace v2
+// Popup Script — Mind Palace
+// Settings are loaded from chrome.storage.sync — no hardcoded credentials.
+
+const DEFAULT_DASHBOARD_URL = "https://mindpalace-bice.vercel.app";
 
 document.addEventListener("DOMContentLoaded", () => {
   const viewMain      = document.getElementById("view-main");
@@ -11,7 +14,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const inputUrl      = document.getElementById("input-dashboard-url");
   const inputToken    = document.getElementById("input-api-token");
   const statusEl      = document.getElementById("settings-status");
-  let currentSettings = { dashboardUrl: "", apiToken: "" };
 
   // ─── View Switching ──────────────────────────────────────────────────────────
 
@@ -20,11 +22,12 @@ document.addEventListener("DOMContentLoaded", () => {
     viewSettings.classList.toggle("active", name === "settings");
   }
 
-  btnSettings.addEventListener("click", async () => {
-    currentSettings = await getSettings();
-    inputUrl.value = currentSettings.dashboardUrl || "";
-    inputToken.value = currentSettings.apiToken || "";
-    show("settings");
+  btnSettings.addEventListener("click", () => {
+    chrome.runtime.sendMessage({ type: "GET_SETTINGS" }, (settings) => {
+      inputUrl.value   = (settings && settings.dashboardUrl) || DEFAULT_DASHBOARD_URL;
+      inputToken.value = (settings && settings.apiToken)    || "";
+      show("settings");
+    });
   });
 
   btnBack.addEventListener("click", () => {
@@ -35,16 +38,15 @@ document.addEventListener("DOMContentLoaded", () => {
   // ─── Save Settings ───────────────────────────────────────────────────────────
 
   btnSave.addEventListener("click", () => {
-    const url = inputUrl.value.trim().replace(/\/$/, "");
+    const url   = (inputUrl.value.trim()   || DEFAULT_DASHBOARD_URL).replace(/\/$/, "");
     const token = inputToken.value.trim();
 
-    if (!url || !token) {
-      showStatus("Dashboard URL and API token are required.", "error");
+    if (!token) {
+      showStatus("API token is required.", "error");
       return;
     }
 
     chrome.runtime.sendMessage({ type: "SAVE_SETTINGS", apiToken: token, dashboardUrl: url }, () => {
-      currentSettings = { dashboardUrl: url, apiToken: token };
       showStatus("Settings saved!", "success");
       setTimeout(() => { show("main"); loadRecent(); }, 1200);
     });
@@ -58,15 +60,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ─── Open Dashboard ──────────────────────────────────────────────────────────
 
-  btnDashboard.addEventListener("click", async () => {
-    const settings = await getSettings();
-    if (!settings.dashboardUrl) {
-      show("settings");
-      showStatus("Add your dashboard URL first.", "error");
-      return;
-    }
-    chrome.tabs.create({ url: settings.dashboardUrl.replace(/\/$/, "") + "/mind-palace" });
-    window.close();
+  btnDashboard.addEventListener("click", () => {
+    chrome.runtime.sendMessage({ type: "GET_SETTINGS" }, (settings) => {
+      const url = (settings && settings.dashboardUrl) || DEFAULT_DASHBOARD_URL;
+      chrome.tabs.create({ url: url + "/mind-palace" });
+      window.close();
+    });
   });
 
   // ─── Load Recent Highlights ──────────────────────────────────────────────────
@@ -74,10 +73,9 @@ document.addEventListener("DOMContentLoaded", () => {
   function loadRecent() {
     listEl.innerHTML = '<div class="spinner"></div>';
 
-    getSettings().then((settings) => {
-      currentSettings = settings;
-      if (!settings.dashboardUrl || !settings.apiToken) {
-        renderNeedsSetup();
+    chrome.runtime.sendMessage({ type: "GET_SETTINGS" }, (settings) => {
+      if (!settings || !settings.apiToken) {
+        renderNotConfigured();
         return;
       }
 
@@ -96,17 +94,6 @@ document.addEventListener("DOMContentLoaded", () => {
         } else {
           renderHighlights(items);
         }
-      });
-    });
-  }
-
-  function getSettings() {
-    return new Promise((resolve) => {
-      chrome.runtime.sendMessage({ type: "GET_SETTINGS" }, (response) => {
-        resolve({
-          dashboardUrl: (response && response.dashboardUrl) || "",
-          apiToken: (response && response.apiToken) || "",
-        });
       });
     });
   }
@@ -134,12 +121,12 @@ document.addEventListener("DOMContentLoaded", () => {
       '</div>';
   }
 
-  function renderNeedsSetup() {
+  function renderNotConfigured() {
     listEl.innerHTML =
       '<div class="empty-state">' +
-      '<div class="empty-icon">✦</div>' +
-      '<div class="empty-title">Connect Mind Palace v2</div>' +
-      '<div class="empty-desc">Open settings and add your v2 dashboard URL plus API token.</div>' +
+      '<div class="empty-icon">⚙</div>' +
+      '<div class="empty-title">Setup required</div>' +
+      '<div class="empty-desc">Open <strong>Settings</strong> and paste your API token from the Mind Palace dashboard.</div>' +
       '</div>';
   }
 

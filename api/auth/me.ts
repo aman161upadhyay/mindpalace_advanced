@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { db } from "../../src/lib/db";
 import { users, apiTokens } from "../../src/schema";
 import { verifyJwt } from "../../src/lib/auth";
+import { applyCors } from "../../src/lib/cors";
 
 function parseCookies(cookieHeader: string): Record<string, string> {
   const cookies: Record<string, string> = {};
@@ -17,9 +18,10 @@ function parseCookies(cookieHeader: string): Record<string, string> {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (applyCors(req, res)) return;
   const cookieHeader = (req.headers.cookie as string) ?? "";
   const cookies = parseCookies(cookieHeader);
-  const token = cookies["mp_session"];
+  const token = cookies["hc_session"];
 
   if (!token) {
     return res.status(401).json({ error: "Not authenticated" });
@@ -37,6 +39,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         username: users.username,
         email: users.email,
         theme: users.theme,
+        dailyEmailEnabled: users.dailyEmailEnabled,
       })
       .from(users)
       .where(eq(users.id, payload.userId))
@@ -59,16 +62,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   if (req.method === "PATCH") {
-    const { theme } = req.body ?? {};
+    const { theme, dailyEmailEnabled } = req.body ?? {};
+
+    const updates: Record<string, any> = { updatedAt: new Date() };
 
     if (theme !== undefined) {
       if (theme !== "dark" && theme !== "light") {
         return res.status(400).json({ error: "Theme must be 'dark' or 'light'" });
       }
+      updates.theme = theme;
+    }
 
+    if (dailyEmailEnabled !== undefined) {
+      if (typeof dailyEmailEnabled !== "boolean") {
+        return res.status(400).json({ error: "dailyEmailEnabled must be a boolean" });
+      }
+      updates.dailyEmailEnabled = dailyEmailEnabled;
+    }
+
+    if (Object.keys(updates).length > 1) {
       await db
         .update(users)
-        .set({ theme, updatedAt: new Date() })
+        .set(updates)
         .where(eq(users.id, payload.userId));
     }
 
@@ -78,6 +93,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         username: users.username,
         email: users.email,
         theme: users.theme,
+        dailyEmailEnabled: users.dailyEmailEnabled,
       })
       .from(users)
       .where(eq(users.id, payload.userId))

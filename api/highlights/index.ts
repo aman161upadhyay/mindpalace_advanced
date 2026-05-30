@@ -32,6 +32,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(200).json(existing[0]);
       }
 
+      if (req.method === "PATCH" && action === "restore") {
+        const existing = await db
+          .select({ id: highlights.id })
+          .from(highlights)
+          .where(and(eq(highlights.id, id), eq(highlights.userId, userId)))
+          .limit(1);
+        if (existing.length === 0) return res.status(404).json({ error: "Highlight not found" });
+        await db.update(highlights)
+          .set({ deletedAt: null })
+          .where(and(eq(highlights.id, id), eq(highlights.userId, userId)));
+        return res.status(200).json({ success: true });
+      }
+
       if (req.method === "PATCH") {
         const { notes, tagIds, text } = req.body ?? {};
         if (notes !== undefined && notes !== null && (typeof notes !== "string" || notes.length > 100000)) {
@@ -81,19 +94,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             .set({ deletedAt: new Date() })
             .where(and(eq(highlights.id, id), eq(highlights.userId, userId)));
         }
-        return res.status(200).json({ success: true });
-      }
-
-      if (req.method === "PATCH" && action === "restore") {
-        const existing = await db
-          .select({ id: highlights.id })
-          .from(highlights)
-          .where(and(eq(highlights.id, id), eq(highlights.userId, userId)))
-          .limit(1);
-        if (existing.length === 0) return res.status(404).json({ error: "Highlight not found" });
-        await db.update(highlights)
-          .set({ deletedAt: null })
-          .where(and(eq(highlights.id, id), eq(highlights.userId, userId)));
         return res.status(200).json({ success: true });
       }
 

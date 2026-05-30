@@ -14,7 +14,10 @@
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "WebFetch(domain:mind-palace-v2.vercel.app)",
-      "Bash(npx vercel:*)"
+      "Bash(npx vercel:*)",
+      "Bash(ls \"M:\\\\AI\\\\01MindPalace\\\\Knowledge_Area51\\\\docs\\\\superpowers\\\\plans 2>/dev/null && echo --- && cat M:AI01MindPalaceKnowledge_Area51docssuperpowersplans2026-04-26-mind-palace-v2-deployment.md\")",
+      "Bash(vercel --version)",
+      "Bash(vercel whoami:*)"
     ]
   }
 }

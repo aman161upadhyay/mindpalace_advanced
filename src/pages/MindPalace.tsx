@@ -369,7 +369,7 @@ function ExportModal({ onClose }: { onClose: () => void }) {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-foreground">
             <Download className="w-4 h-4 text-primary" />
-            Export Compendium
+            Export Mind Palace
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
@@ -475,9 +475,9 @@ function NewTagModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
   );
 }
 
-// ─── Main Compendium Page ─────────────────────────────────────────────────────
+// ─── Main Mind Palace Page ─────────────────────────────────────────────────────
 
-export default function Compendium() {
+export default function MindPalace() {
   const { user, isAuthenticated, loading } = useAuth();
   const [, navigate] = useLocation();
 
@@ -592,7 +592,7 @@ export default function Compendium() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-background gap-4">
         <Highlighter className="w-10 h-10 text-primary" />
-        <h2 className="text-xl font-semibold">Sign in to access your compendium</h2>
+        <h2 className="text-xl font-semibold">Sign in to access your mind palace</h2>
         <Button onClick={() => navigate("/login")}>Sign in</Button>
       </div>
     );
@@ -608,7 +608,7 @@ export default function Compendium() {
             <div className="w-7 h-7 rounded-md bg-primary flex items-center justify-center">
               <Highlighter className="w-3.5 h-3.5 text-primary-foreground" />
             </div>
-            <span className="font-semibold text-sm tracking-tight">Compendium</span>
+            <span className="font-semibold text-sm tracking-tight">Mind Palace</span>
           </div>
         </div>
 
@@ -779,7 +779,7 @@ export default function Compendium() {
               <h3 className="text-lg font-semibold mb-2">
                 {debouncedSearch || selectedTagId || selectedDomain
                   ? "No highlights match your filters"
-                  : "Your compendium is empty"}
+                  : "Your mind palace is empty"}
               </h3>
               <p className="text-sm text-muted-foreground max-w-sm">
                 {debouncedSearch || selectedTagId || selectedDomain

@@ -19,6 +19,7 @@ import {
   Highlighter,
   Loader2,
   Plus,
+  RotateCcw,
   Search,
   Settings,
   Tag,
@@ -656,7 +657,9 @@ export default function MindPalace() {
   const [showNewTag, setShowNewTag] = useState(false);
   const [offset, setOffset] = useState(0);
   const [confirmDeleteTag, setConfirmDeleteTag] = useState<{ id: number; name: string } | null>(null);
-  const [confirmDeleteHighlight, setConfirmDeleteHighlight] = useState<number | null>(null);
+  const [showTrash, setShowTrash] = useState(false);
+  const [trashItems, setTrashItems] = useState<any[]>([]);
+  const [trashLoading, setTrashLoading] = useState(false);
   const LIMIT = 30;
 
   // Debounce search
@@ -717,6 +720,8 @@ export default function MindPalace() {
   }, []);
   useEffect(() => { fetchDomainStats(); }, [fetchDomainStats]);
 
+  useEffect(() => { fetchTrash(); }, []);
+
   const [allMetadataTags, setAllMetadataTags] = useState<string[]>([]);
   const fetchMetadataTags = useCallback(async () => {
     try {
@@ -746,10 +751,33 @@ export default function MindPalace() {
 
   const handleDeleteHighlight = async (id: number) => {
     await fetch(`/api/highlights?id=${id}`, { method: "DELETE", credentials: "include" });
-    setConfirmDeleteHighlight(null);
     fetchHighlights();
     fetchDomainStats();
-    toast.success("Highlight deleted");
+    toast.success("Moved to Trash");
+  };
+
+  const fetchTrash = async () => {
+    setTrashLoading(true);
+    try {
+      const res = await fetch("/api/highlights?action=trash", { credentials: "include" });
+      if (res.ok) setTrashItems(await res.json());
+    } finally {
+      setTrashLoading(false);
+    }
+  };
+
+  const handleRestoreHighlight = async (id: number) => {
+    await fetch(`/api/highlights?id=${id}&action=restore`, { method: "PATCH", credentials: "include" });
+    fetchTrash();
+    fetchHighlights();
+    fetchDomainStats();
+    toast.success("Highlight restored");
+  };
+
+  const handlePurgeHighlight = async (id: number) => {
+    await fetch(`/api/highlights?id=${id}&action=purge`, { method: "DELETE", credentials: "include" });
+    fetchTrash();
+    toast.success("Permanently deleted");
   };
 
   const highlights = highlightsData?.items ?? [];
@@ -926,6 +954,16 @@ export default function MindPalace() {
             Export
           </button>
           <button
+            onClick={() => { setShowTrash(true); fetchTrash(); }}
+            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm hover:bg-sidebar-accent transition-colors text-sidebar-foreground"
+          >
+            <Trash2 className="w-4 h-4" />
+            Trash
+            {trashItems.length > 0 && (
+              <span className="ml-auto text-xs text-muted-foreground">{trashItems.length}</span>
+            )}
+          </button>
+          <button
             onClick={() => navigate("/settings")}
             className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm hover:bg-sidebar-accent transition-colors text-sidebar-foreground"
           >
@@ -1048,7 +1086,7 @@ export default function MindPalace() {
                         tags={tags}
                         onClick={() => setSelectedHighlightId(h.id)}
                         onUpdated={() => fetchHighlights()}
-                        onDelete={() => setConfirmDeleteHighlight(h.id)}
+                        onDelete={() => handleDeleteHighlight(h.id)}
                       />
                     ))}
                   </div>
@@ -1065,7 +1103,7 @@ export default function MindPalace() {
                   tags={tags}
                   onClick={() => setSelectedHighlightId(h.id)}
                   onUpdated={() => fetchHighlights()}
-                  onDelete={() => setConfirmDeleteHighlight(h.id)}
+                  onDelete={() => handleDeleteHighlight(h.id)}
                 />
               ))}
             </div>
@@ -1112,6 +1150,60 @@ export default function MindPalace() {
       )}
       {showExport && <ExportModal onClose={() => setShowExport(false)} />}
       {showNewTag && <NewTagModal onClose={() => setShowNewTag(false)} onCreated={() => fetchTags()} />}
+      {showTrash && (
+        <Dialog open onOpenChange={() => setShowTrash(false)}>
+          <DialogContent className="max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col p-0 gap-0 bg-card border-border shadow-2xl rounded-3xl">
+            <DialogHeader className="px-8 pt-8 pb-4 border-b border-border/50 shrink-0">
+              <DialogTitle className="text-foreground flex items-center gap-2 text-xl">
+                <Trash2 className="w-5 h-5 text-muted-foreground" />
+                Trash
+                <span className="text-sm font-normal text-muted-foreground ml-1">
+                  ({trashItems.length} {trashItems.length === 1 ? "highlight" : "highlights"})
+                </span>
+              </DialogTitle>
+            </DialogHeader>
+            <div className="flex-1 overflow-y-auto px-8 py-6 space-y-3">
+              {trashLoading ? (
+                <div className="space-y-3">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <Skeleton key={i} className="h-20 w-full rounded-2xl" />
+                  ))}
+                </div>
+              ) : trashItems.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16 text-center text-muted-foreground">
+                  <Trash2 className="w-10 h-10 mb-3 opacity-30" />
+                  <p className="text-sm">Trash is empty</p>
+                </div>
+              ) : (
+                trashItems.map((h) => (
+                  <div key={h.id} className="flex items-start gap-4 p-4 rounded-2xl bg-secondary/30 border border-border/50">
+                    <p className="flex-1 text-sm text-foreground/70 line-clamp-2 leading-relaxed">{h.text}</p>
+                    <div className="flex gap-2 shrink-0">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 px-3 text-xs rounded-full gap-1.5"
+                        onClick={() => handleRestoreHighlight(h.id)}
+                      >
+                        <RotateCcw className="w-3 h-3" />
+                        Restore
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 px-3 text-xs rounded-full text-destructive hover:text-destructive hover:bg-destructive/10"
+                        onClick={() => handlePurgeHighlight(h.id)}
+                      >
+                        Delete forever
+                      </Button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
       <ConfirmDialog
         open={confirmDeleteTag !== null}
         title={`Delete "${confirmDeleteTag?.name}"?`}
@@ -1119,14 +1211,6 @@ export default function MindPalace() {
         confirmLabel="Delete Tag"
         onConfirm={confirmHandleDeleteTag}
         onCancel={() => setConfirmDeleteTag(null)}
-      />
-      <ConfirmDialog
-        open={confirmDeleteHighlight !== null}
-        title="Delete highlight?"
-        description="This cannot be undone. The highlight will be permanently removed from your Mind Palace."
-        confirmLabel="Delete"
-        onConfirm={() => confirmDeleteHighlight !== null && handleDeleteHighlight(confirmDeleteHighlight)}
-        onCancel={() => setConfirmDeleteHighlight(null)}
       />
     </div>
   );

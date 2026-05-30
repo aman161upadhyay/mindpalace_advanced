@@ -64,6 +64,7 @@ export const highlights = pgTable("highlights", {
   metadataTags: varchar("metadata_tags", { length: 1024 }).notNull().default("[]"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at"),
 });
 
 export type Highlight = typeof highlights.$inferSelect;

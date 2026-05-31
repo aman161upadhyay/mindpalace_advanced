@@ -1,6 +1,6 @@
 # Mind Palace v2 — Full Project Context
 
-> Last updated: 2026-05-31
+> Last updated: 2026-05-31 (final — AI chat working in production)
 
 ---
 
@@ -110,7 +110,7 @@ These must be set in the Vercel dashboard for **Production + Preview + Developme
 | `DATABASE_URL_UNPOOLED` | Neon Postgres direct connection (for migrations) |
 | `JWT_SECRET` | Secret for signing/verifying JWT auth tokens |
 | `RESEND_API_KEY` | Resend API key for password reset emails |
-| `GOOGLE_SERVICE_ACCOUNT_JSON` | Minified single-line JSON of GCP service account key (for Vertex AI) |
+| `GOOGLE_SERVICE_ACCOUNT_JSON` | **Base64-encoded** minified JSON of GCP service account key (for Vertex AI). MUST be base64, not raw JSON — Vercel corrupts raw JSON escape sequences. |
 
 ### GCP Service Account Details
 - **Project**: `agentlanggraph`
@@ -242,11 +242,18 @@ This is the largest and most complex component (~1300+ lines). Key features:
 6. Answer appears as an AI message bubble in the chat panel
 
 ### Vertex AI Auth Flow (`src/lib/vertex.ts`)
-1. Parse `GOOGLE_SERVICE_ACCOUNT_JSON` env var (with newline re-escaping — Vercel converts `\n` to actual newlines)
-2. Sign a JWT assertion with the service account's private key (RS256, via `jose` library)
-3. Exchange JWT for a short-lived OAuth2 access token at `https://oauth2.googleapis.com/token`
-4. Cache the token (refreshed 60s before expiry)
-5. Use the access token as a Bearer token to call `aiplatform.googleapis.com/v1/projects/agentlanggraph/locations/global/publishers/google/models/gemini-3.1-flash-lite:generateContent`
+1. Read `GOOGLE_SERVICE_ACCOUNT_JSON` env var (base64-encoded)
+2. Base64-decode → JSON.parse to get service account key object
+3. Sign a JWT assertion with the service account's private key (RS256, via `jose` library's `importPKCS8`)
+4. Exchange JWT for a short-lived OAuth2 access token at `https://oauth2.googleapis.com/token`
+5. Cache the token (refreshed 60s before expiry)
+6. Use the access token as a Bearer token to call `aiplatform.googleapis.com/v1/projects/agentlanggraph/locations/global/publishers/google/models/gemini-3.1-flash-lite:generateContent`
+
+### How to Generate the Base64 Env Var
+```bash
+node -e "const fs=require('fs'); const j=JSON.stringify(JSON.parse(fs.readFileSync('path/to/key.json','utf8'))); console.log(Buffer.from(j).toString('base64'))"
+```
+Paste the output into Vercel as `GOOGLE_SERVICE_ACCOUNT_JSON`.
 
 ### Rate Limit
 - 20 requests per minute per IP on the chat endpoint
@@ -268,6 +275,15 @@ Located in `extension/` directory.
 ## 10. Git History (Key Commits, Newest First)
 
 ```
+db23f7f Use base64-encoded env var to avoid Vercel escape corruption entirely
+4cce81a Use loop-based invalid escape removal instead of regex (avoids regex edge cases)
+2601bc6 Reconstruct clean PEM key from base64 after JSON parse to handle Vercel corruption
+2141d8b Fix env var: remove invalid backslash escapes (Vercel corrupts \n to \ + space)
+ffb0a99 Fix env var double-escaping: Vercel stores quotes as \" and newlines as \\n
+067ebf9 Fix PEM key: normalize literal \n to real newlines after JSON parse
+8720b1e Robust env var parsing: try/catch cascade for multiple Vercel newline mangling formats
+b3927b7 Fix env var parsing: strip all newlines instead of re-escaping
+dd39898 Update CONTEXT.md with Vertex AI fixes, correct model/location, and new gotchas
 9cc2e44 Fix JSON parse of service account key: re-escape newlines mangled by Vercel env vars
 89c7462 Show actual error message in chat response for debugging
 62a867c Fix Vertex AI: use gemini-3.1-flash-lite at global location (not us-central1)
@@ -307,7 +323,8 @@ dd2cbbe Complete Mind Palace rebrand: rename Compendium to MindPalace, add v2 de
 | Lexend font too thin | font-weight: 300 | Changed to font-weight: 400 |
 | Vercel deploying stale code | Vercel watching `main` branch, all work on `v2-updates` | Merged `v2-updates` into `main`, pushed to origin |
 | AI chat "Failed to generate answer" (404) | Model `gemini-2.0-flash-lite` doesn't exist; `us-central1` location doesn't serve Gemini 3.x models | Changed to `gemini-3.1-flash-lite` at `global` location in `vertex.ts` |
-| AI chat "Bad control character in JSON" | Vercel converts `\n` escape sequences in env vars to actual newline characters, breaking `JSON.parse()` of the service account key | Added `raw.replace(/\n/g, "\\n")` before `JSON.parse()` in `vertex.ts` |
+| AI chat "Bad control character in JSON" | Vercel corrupts `\n` escape sequences in env vars — converts to real newlines, corrupts some to `\` + space, double-escapes others | Switched to base64-encoding the entire JSON key. Code does `Buffer.from(raw, "base64").toString("utf8")` before `JSON.parse()`. Completely immune to Vercel's escape mangling. |
+| AI chat "pkcs8 must be PKCS#8 formatted string" | After Vercel corrupted `\n` → `\` + space in the PEM key, the base64 data was damaged (extra chars). String-level fixes couldn't reliably reconstruct the key. | Solved by base64-encoding approach above — the PEM key arrives intact. |
 
 ---
 
@@ -405,6 +422,7 @@ mindpalace_advanced/
 - **`jose` v4**: Pinned to v4 for CJS compatibility with Vercel serverless functions.
 - **CSS `@import` order warning**: Pre-existing Tailwind warning during builds — harmless, can be ignored.
 - **PATCH handler ordering**: In `api/highlights/index.ts`, the `PATCH+action=restore` handler MUST come before the generic `PATCH` handler or restore will never execute.
-- **Vercel env var newlines**: Vercel converts `\n` escape sequences in env var values to actual newline characters. Any env var containing JSON with `\n` (like GCP service account keys with PEM private keys) must be re-escaped before `JSON.parse()`. See `src/lib/vertex.ts` for the pattern.
+- **Vercel env var corruption**: Vercel DESTROYS JSON env vars containing `\n` escape sequences (like GCP service account PEM keys). It converts `\n` to real newlines, corrupts some to `\` + space, and double-escapes others. **Solution**: Base64-encode the entire JSON before storing as env var. The code does `Buffer.from(raw, "base64").toString("utf8")` before `JSON.parse()`. Never store raw JSON with `\n` escapes in Vercel env vars.
 - **Vertex AI model locations**: Gemini 3.x models require `global` location, NOT regional locations like `us-central1`. The API URL format changes: `https://aiplatform.googleapis.com/v1/...` (no region prefix) instead of `https://us-central1-aiplatform.googleapis.com/v1/...`.
 - **Deploy workflow**: Always merge `v2-updates` → `main` and push both. Vercel auto-deploys from `main`. Just pushing `v2-updates` alone creates only a preview deployment, not production.
+- **User credentials**: Username `aupadhyay`, email `aupadhyay@mba2027.hbs.edu`. Login endpoint uses `username` field (not `email`) in the POST body, but accepts either username or email as the value.

@@ -13,26 +13,40 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // TEMPORARY: diagnostic endpoint to debug env var format (remove after fixing)
   if (req.method === "GET" && req.query.diag === "envcheck") {
     const raw = process.env.GOOGLE_SERVICE_ACCOUNT_JSON || "";
-    const len = raw.length;
-    const hasRealNewlines = raw.includes("\n");
-    const hasBackslashN = raw.includes("\\n");
-    const first80 = raw.slice(0, 80).replace(/./g, (c) => {
-      const code = c.charCodeAt(0);
-      if (code < 32) return `[${code}]`;
-      return c;
-    });
-    // Show chars around position 1719
-    const around1719 = raw.slice(1710, 1730).replace(/./g, (c) => {
-      const code = c.charCodeAt(0);
-      if (code < 32) return `[${code}]`;
-      return c;
-    });
-    // Try each parse strategy and report which works
+    const stripped = raw.replace(/[\n\r]/g, "");
+    // Show chars with codes around the error positions in the stripped string
+    const showCodes = (s: string, start: number, end: number) =>
+      Array.from(s.slice(start, end)).map((c, i) => `${start + i}:${c}(${c.charCodeAt(0)})`).join(" ");
+    // Find all backslash positions in stripped string and what follows
+    const backslashes: string[] = [];
+    for (let i = 0; i < stripped.length; i++) {
+      if (stripped[i] === '\\') {
+        backslashes.push(`${i}:\\${stripped[i+1] || 'EOF'}(${stripped.charCodeAt(i+1)})`);
+      }
+    }
+    // Test the double-parse approach
     const results: string[] = [];
-    try { JSON.parse(raw); results.push("direct: OK"); } catch (e: any) { results.push(`direct: ${e.message.slice(0, 80)}`); }
-    try { JSON.parse(raw.replace(/[\n\r]/g, "")); results.push("strip: OK"); } catch (e: any) { results.push(`strip: ${e.message.slice(0, 80)}`); }
-    try { JSON.parse(raw.replace(/\\n/g, "\n").replace(/[\n\r]/g, "")); results.push("unescape+strip: OK"); } catch (e: any) { results.push(`unescape+strip: ${e.message.slice(0, 80)}`); }
-    return res.status(200).json({ len, hasRealNewlines, hasBackslashN, first80, around1719, results });
+    try { JSON.parse(stripped); results.push("strip: OK"); } catch (e: any) { results.push(`strip: ${e.message.slice(0, 100)}`); }
+    try {
+      const unesc = JSON.parse('"' + stripped + '"');
+      JSON.parse(unesc);
+      results.push("double-parse: OK");
+    } catch (e: any) { results.push(`double-parse: ${e.message.slice(0, 100)}`); }
+    // Test: replace literal \n with real newlines, then strip, then parse
+    try {
+      const fixed = stripped.replace(/\\n/g, '\n').replace(/[\n\r]/g, '');
+      JSON.parse(fixed);
+      results.push("replace-backslash-n: OK");
+    } catch (e: any) { results.push(`replace-backslash-n: ${e.message.slice(0, 100)}`); }
+    return res.status(200).json({
+      len: raw.length,
+      strippedLen: stripped.length,
+      around1760: showCodes(stripped, 1760, 1775),
+      backslashCount: backslashes.length,
+      backslashSamples: backslashes.slice(0, 10),
+      lastBackslashes: backslashes.slice(-5),
+      results,
+    });
   }
 
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });

@@ -79,7 +79,8 @@ ${highlightContext}`;
     const answer = await callGemini(question.trim(), systemInstruction);
     return res.status(200).json({ answer });
   } catch (err: unknown) {
-    console.error("[chat] Error:", err);
-    return res.status(500).json({ error: "Failed to generate answer. Please try again." });
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[chat] Error:", message);
+    return res.status(500).json({ error: `AI error: ${message}` });
   }
 }

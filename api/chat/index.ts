@@ -9,6 +9,32 @@ import { callGemini } from "../../src/lib/vertex";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (applyCors(req, res)) return;
+
+  // TEMPORARY: diagnostic endpoint to debug env var format (remove after fixing)
+  if (req.method === "GET" && req.query.diag === "envcheck") {
+    const raw = process.env.GOOGLE_SERVICE_ACCOUNT_JSON || "";
+    const len = raw.length;
+    const hasRealNewlines = raw.includes("\n");
+    const hasBackslashN = raw.includes("\\n");
+    const first80 = raw.slice(0, 80).replace(/./g, (c) => {
+      const code = c.charCodeAt(0);
+      if (code < 32) return `[${code}]`;
+      return c;
+    });
+    // Show chars around position 1719
+    const around1719 = raw.slice(1710, 1730).replace(/./g, (c) => {
+      const code = c.charCodeAt(0);
+      if (code < 32) return `[${code}]`;
+      return c;
+    });
+    // Try each parse strategy and report which works
+    const results: string[] = [];
+    try { JSON.parse(raw); results.push("direct: OK"); } catch (e: any) { results.push(`direct: ${e.message.slice(0, 80)}`); }
+    try { JSON.parse(raw.replace(/[\n\r]/g, "")); results.push("strip: OK"); } catch (e: any) { results.push(`strip: ${e.message.slice(0, 80)}`); }
+    try { JSON.parse(raw.replace(/\\n/g, "\n").replace(/[\n\r]/g, "")); results.push("unescape+strip: OK"); } catch (e: any) { results.push(`unescape+strip: ${e.message.slice(0, 80)}`); }
+    return res.status(200).json({ len, hasRealNewlines, hasBackslashN, first80, around1719, results });
+  }
+
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   const ip = getClientIp(req.headers);

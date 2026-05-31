@@ -10,43 +10,7 @@ import { callGemini } from "../../src/lib/vertex";
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (applyCors(req, res)) return;
 
-  // TEMP diagnostic — no key content exposed, just structure info
-  if (req.method === "GET" && req.query.diag === "pem") {
-    const raw = process.env.GOOGLE_SERVICE_ACCOUNT_JSON || "";
-    const stripped = raw.replace(/[\n\r]/g, "");
-    const validEscapes = new Set(['"', "\\", "/", "b", "f", "n", "r", "t", "u"]);
-    let cleaned = "";
-    for (let i = 0; i < stripped.length; i++) {
-      if (stripped[i] === "\\" && i + 1 < stripped.length && !validEscapes.has(stripped[i + 1])) continue;
-      cleaned += stripped[i];
-    }
-    try {
-      const parsed = JSON.parse(cleaned);
-      const pk = parsed.private_key;
-      const hasBegin = pk.includes("-----BEGIN");
-      const hasEnd = pk.includes("-----END");
-      const pemMatch = pk.match(/-----BEGIN ([A-Z ]+)-----([\s\S]*?)-----END [A-Z ]+-----/);
-      const base64 = pemMatch ? pemMatch[2].replace(/[^A-Za-z0-9+/=]/g, "") : null;
-      // Count non-base64 chars in PEM body (spaces, control chars etc)
-      const nonB64 = pemMatch ? pemMatch[2].replace(/[A-Za-z0-9+/=\n]/g, "").length : -1;
-      // Try importPKCS8
-      let importResult = "not tested";
-      try {
-        const { importPKCS8 } = await import("jose");
-        if (pemMatch && base64) {
-          const recon = `-----BEGIN ${pemMatch[1]}-----\n${base64}\n-----END ${pemMatch[1]}-----\n`;
-          await importPKCS8(recon, "RS256");
-          importResult = "OK";
-        }
-      } catch (e: any) { importResult = e.message; }
-      return res.status(200).json({
-        pkLen: pk.length, hasBegin, hasEnd, pemMatched: !!pemMatch,
-        base64Len: base64?.length, nonB64Chars: nonB64, importResult,
-      });
-    } catch (e: any) {
-      return res.status(200).json({ parseError: e.message });
-    }
-  }
+
 
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 

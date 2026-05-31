@@ -22,9 +22,15 @@ export async function getVertexAccessToken(): Promise<string> {
 
   // Vercel mangles env vars: converts \n to real newlines, corrupts some escapes.
   // Fix: strip newlines, remove invalid backslash escapes, parse JSON.
-  const cleaned = raw
-    .replace(/[\n\r]/g, "")
-    .replace(/\\(?!["\\\/bfnrtu])/g, "");
+  const stripped = raw.replace(/[\n\r]/g, "");
+  const validEscapes = new Set(['"', "\\", "/", "b", "f", "n", "r", "t", "u"]);
+  let cleaned = "";
+  for (let i = 0; i < stripped.length; i++) {
+    if (stripped[i] === "\\" && i + 1 < stripped.length && !validEscapes.has(stripped[i + 1])) {
+      continue; // skip backslash before invalid escape char
+    }
+    cleaned += stripped[i];
+  }
   const key: ServiceAccountKey = JSON.parse(cleaned);
   // Reconstruct clean PEM: extract base64, strip any non-base64 chars (spaces etc),
   // then wrap with proper PEM markers. importPKCS8 handles single-line base64.

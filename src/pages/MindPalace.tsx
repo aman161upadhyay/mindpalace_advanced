@@ -18,6 +18,7 @@ import {
   Globe,
   Highlighter,
   Loader2,
+  MessageSquare,
   Plus,
   RotateCcw,
   Search,
@@ -659,6 +660,12 @@ export default function MindPalace() {
   const [trashLoading, setTrashLoading] = useState(false);
   const LIMIT = 30;
 
+  const [showChat, setShowChat] = useState(false);
+  const [chatMessages, setChatMessages] = useState<{ role: "user" | "ai"; text: string }[]>([]);
+  const [chatInput, setChatInput] = useState("");
+  const [chatLoading, setChatLoading] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
   // Debounce search
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleSearchChange = useCallback((val: string) => {
@@ -730,6 +737,10 @@ export default function MindPalace() {
   }, []);
   useEffect(() => { fetchMetadataTags(); }, [fetchMetadataTags]);
 
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chatMessages]);
+
   // ─── Actions ─────────────────────────────────────────────────────────────────
 
   const handleDeleteTag = (id: number, name: string) => {
@@ -776,6 +787,33 @@ export default function MindPalace() {
     fetchTrash();
     toast.success("Permanently deleted");
   };
+
+  const sendChatMessage = useCallback(async () => {
+    const question = chatInput.trim();
+    if (!question || chatLoading) return;
+    setChatInput("");
+    setChatMessages((prev) => [...prev, { role: "user", text: question }]);
+    setChatLoading(true);
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ question }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed");
+      setChatMessages((prev) => [...prev, { role: "ai", text: data.answer }]);
+    } catch (err: any) {
+      setChatMessages((prev) => [
+        ...prev,
+        { role: "ai", text: `Sorry, something went wrong: ${err.message}` },
+      ]);
+    } finally {
+      setChatLoading(false);
+      setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
+    }
+  }, [chatInput, chatLoading]);
 
   const highlights = highlightsData?.items ?? [];
   const total = highlightsData?.total ?? 0;
@@ -999,6 +1037,18 @@ export default function MindPalace() {
                 </button>
               )}
             </div>
+            <button
+              onClick={() => setShowChat((v) => !v)}
+              className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                showChat
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-secondary text-muted-foreground hover:text-foreground hover:bg-accent"
+              }`}
+              title="Ask AI about your highlights"
+            >
+              <MessageSquare className="w-4 h-4" />
+              Ask AI
+            </button>
           </div>
 
           {/* Active filters */}
@@ -1032,6 +1082,62 @@ export default function MindPalace() {
             </div>
           )}
         </header>
+
+        {/* Chat panel */}
+        {showChat && (
+          <div className="border-b border-border bg-card/50 px-6 py-4 flex flex-col gap-3">
+            <div className="max-h-64 overflow-y-auto flex flex-col gap-2">
+              {chatMessages.length === 0 && (
+                <p className="text-xs text-muted-foreground text-center py-4">
+                  Ask anything about your highlights — e.g. "What have I saved about AI?" or "Summarize my notes on investing."
+                </p>
+              )}
+              {chatMessages.map((msg, i) => (
+                <div
+                  key={i}
+                  className={`flex gap-2 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+                >
+                  <div
+                    className={`max-w-[80%] px-3 py-2 rounded-2xl text-sm leading-relaxed ${
+                      msg.role === "user"
+                        ? "bg-primary text-primary-foreground rounded-br-sm"
+                        : "bg-secondary text-foreground rounded-bl-sm"
+                    }`}
+                  >
+                    {msg.text}
+                  </div>
+                </div>
+              ))}
+              {chatLoading && (
+                <div className="flex justify-start">
+                  <div className="bg-secondary px-3 py-2 rounded-2xl rounded-bl-sm flex items-center gap-1.5">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground">Thinking…</span>
+                  </div>
+                </div>
+              )}
+              <div ref={chatEndRef} />
+            </div>
+            <div className="flex gap-2">
+              <Input
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendChatMessage()}
+                placeholder="Ask about your highlights…"
+                className="flex-1 bg-secondary/50 border-border focus:border-primary/50 text-sm"
+                disabled={chatLoading}
+              />
+              <Button
+                size="sm"
+                onClick={sendChatMessage}
+                disabled={!chatInput.trim() || chatLoading}
+                className="px-4"
+              >
+                {chatLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Send"}
+              </Button>
+            </div>
+          </div>
+        )}
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6 flex flex-col items-center">

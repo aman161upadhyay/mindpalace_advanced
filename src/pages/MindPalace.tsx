@@ -313,7 +313,7 @@ function HighlightDetailModal({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="flex-1 overflow-hidden grid grid-cols-[1fr_280px] min-h-0">
+        <div className="flex-1 overflow-hidden grid grid-cols-[1fr_200px] min-h-0">
           {isLoading ? (
             <div className="col-span-2 p-6 space-y-3">
               <Skeleton className="h-24 w-full rounded-xl" />

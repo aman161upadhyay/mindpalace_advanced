@@ -20,7 +20,9 @@ export async function getVertexAccessToken(): Promise<string> {
   const raw = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
   if (!raw) throw new Error("GOOGLE_SERVICE_ACCOUNT_JSON env var is not set");
 
-  const key: ServiceAccountKey = JSON.parse(raw);
+  // Vercel may convert \n escape sequences to actual newlines, breaking JSON.parse.
+  // Re-escape them so the private_key field parses correctly.
+  const key: ServiceAccountKey = JSON.parse(raw.replace(/\n/g, "\\n"));
   const now = Math.floor(Date.now() / 1000);
 
   // Sign a JWT assertion for the Google OAuth2 token endpoint

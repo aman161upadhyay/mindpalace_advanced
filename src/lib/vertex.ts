@@ -20,18 +20,16 @@ export async function getVertexAccessToken(): Promise<string> {
   const raw = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
   if (!raw) throw new Error("GOOGLE_SERVICE_ACCOUNT_JSON env var is not set");
 
-  // Vercel double-escapes env vars: \" for quotes, \\n for newlines, plus real newlines.
-  // Strategy: strip real newlines, unescape the double-encoding, then parse.
-  const stripped = raw.replace(/[\n\r]/g, "");
-  let key: ServiceAccountKey;
-  try {
-    key = JSON.parse(stripped);
-  } catch {
-    // Double-escaped: {\"type\":...} — unescape via JSON string parse, then object parse
-    const unescaped = JSON.parse('"' + stripped + '"');
-    key = JSON.parse(unescaped);
-  }
-  // Ensure PEM newlines are real newlines regardless of escaping path
+  // Vercel mangles env vars: converts \n to real newlines and may corrupt some
+  // escape sequences (e.g. \n → backslash + space). Fix:
+  // 1. Strip real newlines/carriage returns
+  // 2. Remove backslashes not followed by valid JSON escape chars
+  // 3. Parse the cleaned JSON
+  const cleaned = raw
+    .replace(/[\n\r]/g, "")
+    .replace(/\\(?!["\\\/bfnrtu])/g, "");
+  const key: ServiceAccountKey = JSON.parse(cleaned);
+  // Ensure PEM newlines are real newlines (they're \n escapes in the parsed JSON string)
   key.private_key = key.private_key.replace(/\\n/g, "\n");
   const now = Math.floor(Date.now() / 1000);
 

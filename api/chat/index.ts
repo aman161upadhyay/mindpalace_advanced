@@ -32,12 +32,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       JSON.parse(unesc);
       results.push("double-parse: OK");
     } catch (e: any) { results.push(`double-parse: ${e.message.slice(0, 100)}`); }
-    // Test: replace literal \n with real newlines, then strip, then parse
+    // Test: strip newlines + remove invalid backslash escapes
     try {
-      const fixed = stripped.replace(/\\n/g, '\n').replace(/[\n\r]/g, '');
-      JSON.parse(fixed);
-      results.push("replace-backslash-n: OK");
-    } catch (e: any) { results.push(`replace-backslash-n: ${e.message.slice(0, 100)}`); }
+      const cleaned = raw.replace(/[\n\r]/g, "").replace(/\\(?!["\\\/bfnrtu])/g, "");
+      const parsed = JSON.parse(cleaned);
+      results.push(`clean+parse: OK, email=${parsed.client_email}`);
+    } catch (e: any) { results.push(`clean+parse: ${e.message.slice(0, 100)}`); }
     return res.status(200).json({
       len: raw.length,
       strippedLen: stripped.length,

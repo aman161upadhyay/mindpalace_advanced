@@ -303,190 +303,187 @@ function HighlightDetailModal({
 
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl w-full max-h-[85vh] overflow-hidden flex flex-col p-0 gap-0 bg-card border-border shadow-2xl shadow-primary/5 rounded-3xl">
-        <DialogHeader className="px-8 pt-8 pb-4 border-b border-border/50 shrink-0">
-          <DialogTitle className="text-foreground flex items-center gap-2 font-serif italic text-2xl">
-            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-              <Highlighter className="w-4 h-4 text-primary" />
+      <DialogContent className="max-w-5xl w-full max-h-[82vh] overflow-hidden flex flex-col p-0 gap-0 bg-card border-border shadow-2xl shadow-primary/5 rounded-2xl">
+        <DialogHeader className="px-6 pt-5 pb-3 border-b border-border/50 shrink-0">
+          <DialogTitle className="text-foreground flex items-center gap-2 text-sm font-semibold tracking-tight">
+            <div className="w-6 h-6 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
+              <Highlighter className="w-3 h-3 text-primary" />
             </div>
             Review Highlight
           </DialogTitle>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto px-8 py-6 space-y-8">
+        <div className="flex-1 overflow-hidden grid grid-cols-[3fr_2fr] min-h-0">
           {isLoading ? (
-            <div className="space-y-4">
-              <Skeleton className="h-32 w-full rounded-2xl" />
-              <Skeleton className="h-4 w-2/3" />
-              <Skeleton className="h-4 w-1/2" />
+            <div className="col-span-2 p-6 space-y-3">
+              <Skeleton className="h-24 w-full rounded-xl" />
+              <Skeleton className="h-3 w-2/3" />
+              <Skeleton className="h-3 w-1/2" />
             </div>
           ) : highlight ? (
             <>
-              {/* Highlight text */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-semibold text-primary uppercase tracking-widest">
-                    Captured Text
-                  </p>
+              {/* Left column — captured text */}
+              <div className="flex flex-col overflow-hidden border-r border-border/50 p-5 gap-3">
+                <div className="flex items-center justify-between shrink-0">
+                  <p className="text-[10px] font-semibold text-primary uppercase tracking-widest">Captured Text</p>
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-8 px-3 text-xs rounded-full bg-secondary/50 hover:bg-primary/10 hover:text-primary transition-colors"
+                    className="h-7 px-2.5 text-[11px] rounded-full bg-secondary/50 hover:bg-primary/10 hover:text-primary transition-colors"
                     onClick={() => setIsEditingText(!isEditingText)}
                   >
-                    {isEditingText ? "Cancel Edit" : "Edit Highlight"}
+                    {isEditingText ? "Cancel" : "Edit"}
                   </Button>
                 </div>
-                
+
                 {isEditingText ? (
                   <Textarea
                     value={text}
                     onChange={(e) => setText(e.target.value)}
-                    className="min-h-[200px] bg-secondary/30 border-border focus:border-primary/50 text-[15px] leading-relaxed resize-y p-5 rounded-2xl shadow-inner focus-visible:ring-1 focus-visible:ring-primary/30"
+                    className="flex-1 bg-secondary/30 border-border focus:border-primary/50 text-[13px] leading-relaxed resize-none p-4 rounded-xl shadow-inner focus-visible:ring-1 focus-visible:ring-primary/30"
                   />
                 ) : (
-                  <div className="p-6 md:p-8 rounded-2xl bg-gradient-to-br from-primary/5 to-transparent border border-primary/10 shadow-sm relative group max-h-[40vh] overflow-y-auto custom-scrollbar">
-                    <blockquote className="highlight-text text-foreground/90 text-lg md:text-xl">
+                  <div className="flex-1 overflow-y-auto p-4 rounded-xl bg-gradient-to-br from-primary/5 to-transparent border border-primary/10 shadow-sm custom-scrollbar">
+                    <blockquote className="text-foreground/90 text-[13px] leading-relaxed font-['Inter',system-ui,sans-serif]">
                       &ldquo;{text}&rdquo;
                     </blockquote>
                   </div>
                 )}
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {/* Meta details */}
-                <div className="space-y-6">
-                  <div className="space-y-2">
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">Source</p>
-                    <div className="flex items-start gap-2.5 p-4 rounded-2xl bg-secondary/30 border border-border/50">
-                      <Globe className="w-4 h-4 text-primary mt-0.5 shrink-0" />
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium text-foreground truncate">{highlight.pageTitle || highlight.domain}</p>
-                        <a
-                          href={highlight.sourceUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs text-muted-foreground hover:text-primary transition-colors flex items-center gap-1.5 mt-1"
-                        >
-                          <span className="truncate max-w-[200px] inline-block">{highlight.sourceUrl}</span>
-                          <ExternalLink className="w-3 h-3 shrink-0" />
-                        </a>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">Date</p>
-                    <div className="flex items-center gap-2 text-sm text-foreground p-3 rounded-xl bg-secondary/30 border border-border/50 w-fit">
-                      <Calendar className="w-4 h-4 text-primary" />
-                      {new Date(highlight.createdAt).toLocaleString()}
+              {/* Right column — meta, notes, tags */}
+              <div className="flex flex-col overflow-y-auto p-5 gap-5 custom-scrollbar">
+                {/* Source */}
+                <div className="space-y-1.5">
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Source</p>
+                  <div className="flex items-start gap-2 p-3 rounded-xl bg-secondary/30 border border-border/50">
+                    <Globe className="w-3.5 h-3.5 text-primary mt-0.5 shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium text-foreground truncate">{highlight.pageTitle || highlight.domain}</p>
+                      <a
+                        href={highlight.sourceUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[11px] text-muted-foreground hover:text-primary transition-colors flex items-center gap-1 mt-0.5"
+                      >
+                        <span className="truncate max-w-[160px] inline-block">{highlight.sourceUrl}</span>
+                        <ExternalLink className="w-2.5 h-2.5 shrink-0" />
+                      </a>
                     </div>
                   </div>
                 </div>
 
-                {/* Notes & Tags */}
-                <div className="space-y-6 flex flex-col h-full">
-                  <div className="space-y-2 flex-1">
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">Personal Notes</p>
-                    <Textarea
-                      value={notes}
-                      onChange={(e) => setNotes(e.target.value)}
-                      placeholder="Add your thoughts, context, or connections..."
-                      className="h-[120px] bg-secondary/30 border-border focus:border-primary/50 resize-none text-sm p-4 rounded-2xl shadow-inner focus-visible:ring-1 focus-visible:ring-primary/30"
-                    />
+                {/* Date */}
+                <div className="space-y-1.5">
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Saved</p>
+                  <div className="flex items-center gap-1.5 text-xs text-foreground p-2.5 rounded-lg bg-secondary/30 border border-border/50 w-fit">
+                    <Calendar className="w-3.5 h-3.5 text-primary" />
+                    {new Date(highlight.createdAt).toLocaleString()}
                   </div>
+                </div>
 
-                  <div className="space-y-3">
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">Tags</p>
-                    <div className="flex flex-col gap-3 p-4 rounded-2xl bg-secondary/30 border border-border/50 min-h-[60px]">
-                      <div className="flex flex-wrap gap-2">
-                        {tags.map((t) => (
-                          <TagChip
-                            key={t.id}
-                            tag={t}
-                            selected={selectedTagIds.includes(t.id)}
-                            onClick={() => toggleTag(t.id)}
-                          />
-                        ))}
-                        {tags.length === 0 && (
-                          <p className="text-xs text-muted-foreground self-center">No tags yet.</p>
-                        )}
-                      </div>
-                      
-                      <div className="flex items-center gap-2 mt-1">
-                        <Input
-                          value={newTagName}
-                          onChange={(e) => setNewTagName(e.target.value)}
-                          onKeyDown={(e) => e.key === "Enter" && handleCreateTag()}
-                          placeholder="Type a new tag & press Enter..."
-                          className="h-8 text-xs bg-background/50 border-border/50 focus-visible:ring-1 focus-visible:ring-primary/30"
-                          disabled={creatingTag}
+                {/* Notes */}
+                <div className="space-y-1.5">
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Notes</p>
+                  <Textarea
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder="Add your thoughts..."
+                    className="h-[90px] bg-secondary/30 border-border focus:border-primary/50 resize-none text-xs p-3 rounded-xl shadow-inner focus-visible:ring-1 focus-visible:ring-primary/30"
+                  />
+                </div>
+
+                {/* Tags */}
+                <div className="space-y-1.5">
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Tags</p>
+                  <div className="flex flex-col gap-2 p-3 rounded-xl bg-secondary/30 border border-border/50">
+                    <div className="flex flex-wrap gap-1.5">
+                      {tags.map((t) => (
+                        <TagChip
+                          key={t.id}
+                          tag={t}
+                          selected={selectedTagIds.includes(t.id)}
+                          onClick={() => toggleTag(t.id)}
                         />
-                        <Button 
-                          size="sm" 
-                          variant="secondary" 
-                          className="h-8 px-3 text-xs"
-                          onClick={handleCreateTag}
-                          disabled={!newTagName.trim() || creatingTag}
-                        >
-                          {creatingTag ? <Loader2 className="w-3 h-3 animate-spin" /> : "Add"}
-                        </Button>
-                      </div>
+                      ))}
+                      {tags.length === 0 && (
+                        <p className="text-xs text-muted-foreground">No tags yet.</p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <Input
+                        value={newTagName}
+                        onChange={(e) => setNewTagName(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && handleCreateTag()}
+                        placeholder="New tag, press Enter…"
+                        className="h-7 text-xs bg-background/50 border-border/50 focus-visible:ring-1 focus-visible:ring-primary/30"
+                        disabled={creatingTag}
+                      />
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        className="h-7 px-2.5 text-xs"
+                        onClick={handleCreateTag}
+                        disabled={!newTagName.trim() || creatingTag}
+                      >
+                        {creatingTag ? <Loader2 className="w-3 h-3 animate-spin" /> : "Add"}
+                      </Button>
                     </div>
                   </div>
-
-                  {highlight.metadataTags && safeParseTags(highlight.metadataTags).length > 0 && (
-                    <div className="space-y-2">
-                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">Auto Tags</p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {safeParseTags(highlight.metadataTags).map((mt: string) => (
-                          <span key={mt} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-primary/10 text-primary border border-primary/20 uppercase tracking-widest shadow-sm">
-                            {mt}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 </div>
+
+                {/* Auto Tags */}
+                {highlight.metadataTags && safeParseTags(highlight.metadataTags).length > 0 && (
+                  <div className="space-y-1.5">
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Auto Tags</p>
+                    <div className="flex flex-wrap gap-1">
+                      {safeParseTags(highlight.metadataTags).map((mt: string) => (
+                        <span key={mt} className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-primary/10 text-primary border border-primary/20 uppercase tracking-widest">
+                          {mt}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </>
           ) : null}
         </div>
 
         {/* Actions Footer */}
-        <div className="px-8 py-5 border-t border-border/50 bg-secondary/10 shrink-0 flex items-center justify-between">
+        <div className="px-6 py-3 border-t border-border/50 bg-secondary/10 shrink-0 flex items-center justify-between">
           <Button
             variant="ghost"
-            size="default"
-            className="text-destructive hover:text-destructive hover:bg-destructive/10 rounded-full px-6"
+            size="sm"
+            className="text-destructive hover:text-destructive hover:bg-destructive/10 rounded-full px-4 text-xs"
             onClick={() => setShowDeleteConfirm(true)}
             disabled={deleting || isLoading}
           >
-            <Trash2 className="w-4 h-4 mr-2" />
-            Delete Highlight
+            <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+            Delete
           </Button>
-          <div className="flex gap-3">
+          <div className="flex gap-2">
             <Button
               variant="outline"
-              size="default"
-              className="rounded-full px-6 bg-background"
+              size="sm"
+              className="rounded-full px-4 bg-background text-xs"
               onClick={onClose}
               disabled={saving}
             >
               Close
             </Button>
             <Button
-              size="default"
-              className="rounded-full px-8 shadow-lg shadow-primary/20 magnetic-btn"
+              size="sm"
+              className="rounded-full px-5 shadow-lg shadow-primary/20 text-xs"
               onClick={handleSave}
               disabled={saving || isLoading}
             >
               {saving ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
               ) : (
-                <Check className="w-4 h-4 mr-2" />
+                <Check className="w-3.5 h-3.5 mr-1.5" />
               )}
-              Save Details
+              Save
             </Button>
           </div>
         </div>

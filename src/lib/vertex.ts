@@ -34,6 +34,8 @@ export async function getVertexAccessToken(): Promise<string> {
       key = JSON.parse(fixed);
     }
   }
+  // Ensure PEM newlines are real newlines (handles double-escaped \\n → literal \n text)
+  key.private_key = key.private_key.replace(/\\n/g, "\n");
   const now = Math.floor(Date.now() / 1000);
 
   // Sign a JWT assertion for the Google OAuth2 token endpoint

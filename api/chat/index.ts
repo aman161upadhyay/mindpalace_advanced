@@ -10,45 +10,6 @@ import { callGemini } from "../../src/lib/vertex";
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (applyCors(req, res)) return;
 
-  // TEMPORARY: diagnostic endpoint to debug env var format (remove after fixing)
-  if (req.method === "GET" && req.query.diag === "envcheck") {
-    const raw = process.env.GOOGLE_SERVICE_ACCOUNT_JSON || "";
-    const stripped = raw.replace(/[\n\r]/g, "");
-    // Show chars with codes around the error positions in the stripped string
-    const showCodes = (s: string, start: number, end: number) =>
-      Array.from(s.slice(start, end)).map((c, i) => `${start + i}:${c}(${c.charCodeAt(0)})`).join(" ");
-    // Find all backslash positions in stripped string and what follows
-    const backslashes: string[] = [];
-    for (let i = 0; i < stripped.length; i++) {
-      if (stripped[i] === '\\') {
-        backslashes.push(`${i}:\\${stripped[i+1] || 'EOF'}(${stripped.charCodeAt(i+1)})`);
-      }
-    }
-    // Test the double-parse approach
-    const results: string[] = [];
-    try { JSON.parse(stripped); results.push("strip: OK"); } catch (e: any) { results.push(`strip: ${e.message.slice(0, 100)}`); }
-    try {
-      const unesc = JSON.parse('"' + stripped + '"');
-      JSON.parse(unesc);
-      results.push("double-parse: OK");
-    } catch (e: any) { results.push(`double-parse: ${e.message.slice(0, 100)}`); }
-    // Test: strip newlines + remove invalid backslash escapes
-    try {
-      const cleaned = raw.replace(/[\n\r]/g, "").replace(/\\(?!["\\\/bfnrtu])/g, "");
-      const parsed = JSON.parse(cleaned);
-      results.push(`clean+parse: OK, email=${parsed.client_email}`);
-    } catch (e: any) { results.push(`clean+parse: ${e.message.slice(0, 100)}`); }
-    return res.status(200).json({
-      len: raw.length,
-      strippedLen: stripped.length,
-      around1760: showCodes(stripped, 1760, 1775),
-      backslashCount: backslashes.length,
-      backslashSamples: backslashes.slice(0, 10),
-      lastBackslashes: backslashes.slice(-5),
-      results,
-    });
-  }
-
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   const ip = getClientIp(req.headers);

@@ -61,10 +61,10 @@ export async function getVertexAccessToken(): Promise<string> {
 export async function callGemini(prompt: string, systemInstruction: string): Promise<string> {
   const token = await getVertexAccessToken();
   const project = "agentlanggraph";
-  const location = "us-central1";
-  const model = "gemini-2.0-flash-lite";
+  const location = "global";
+  const model = "gemini-3.1-flash-lite";
 
-  const url = `https://${location}-aiplatform.googleapis.com/v1/projects/${project}/locations/${location}/publishers/google/models/${model}:generateContent`;
+  const url = `https://aiplatform.googleapis.com/v1/projects/${project}/locations/${location}/publishers/google/models/${model}:generateContent`;
 
   const body = {
     systemInstruction: {

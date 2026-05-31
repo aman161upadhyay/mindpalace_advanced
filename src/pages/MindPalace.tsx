@@ -303,7 +303,7 @@ function HighlightDetailModal({
 
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-5xl w-full max-h-[82vh] overflow-hidden flex flex-col p-0 gap-0 bg-card border-border shadow-2xl shadow-primary/5 rounded-2xl">
+      <DialogContent className="max-w-6xl w-full max-h-[82vh] overflow-hidden flex flex-col p-0 gap-0 bg-card border-border shadow-2xl shadow-primary/5 rounded-2xl">
         <DialogHeader className="px-6 pt-5 pb-3 border-b border-border/50 shrink-0">
           <DialogTitle className="text-foreground flex items-center gap-2 text-sm font-semibold tracking-tight">
             <div className="w-6 h-6 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
@@ -313,7 +313,7 @@ function HighlightDetailModal({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="flex-1 overflow-hidden grid grid-cols-[3fr_2fr] min-h-0">
+        <div className="flex-1 overflow-hidden grid grid-cols-[1fr_280px] min-h-0">
           {isLoading ? (
             <div className="col-span-2 p-6 space-y-3">
               <Skeleton className="h-24 w-full rounded-xl" />

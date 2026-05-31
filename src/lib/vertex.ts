@@ -20,17 +20,21 @@ export async function getVertexAccessToken(): Promise<string> {
   const raw = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
   if (!raw) throw new Error("GOOGLE_SERVICE_ACCOUNT_JSON env var is not set");
 
-  // Vercel mangles env vars: converts \n to real newlines and may corrupt some
-  // escape sequences (e.g. \n → backslash + space). Fix:
-  // 1. Strip real newlines/carriage returns
-  // 2. Remove backslashes not followed by valid JSON escape chars
-  // 3. Parse the cleaned JSON
+  // Vercel mangles env vars: converts \n to real newlines, corrupts some escapes.
+  // Fix: strip newlines, remove invalid backslash escapes, parse JSON.
   const cleaned = raw
     .replace(/[\n\r]/g, "")
     .replace(/\\(?!["\\\/bfnrtu])/g, "");
   const key: ServiceAccountKey = JSON.parse(cleaned);
-  // Ensure PEM newlines are real newlines (they're \n escapes in the parsed JSON string)
-  key.private_key = key.private_key.replace(/\\n/g, "\n");
+  // Reconstruct clean PEM: extract base64, strip any non-base64 chars (spaces etc),
+  // then wrap with proper PEM markers. importPKCS8 handles single-line base64.
+  const pemMatch = key.private_key.match(
+    /-----BEGIN ([A-Z ]+)-----([\s\S]*?)-----END [A-Z ]+-----/
+  );
+  if (pemMatch) {
+    const base64 = pemMatch[2].replace(/[^A-Za-z0-9+/=]/g, "");
+    key.private_key = `-----BEGIN ${pemMatch[1]}-----\n${base64}\n-----END ${pemMatch[1]}-----\n`;
+  }
   const now = Math.floor(Date.now() / 1000);
 
   // Sign a JWT assertion for the Google OAuth2 token endpoint

@@ -17,6 +17,9 @@ export const users = pgTable("users", {
   passwordHash: varchar("password_hash", { length: 255 }).notNull(),
   theme: varchar("theme", { length: 10 }).notNull().default("dark"),
   dailyEmailEnabled: boolean("daily_email_enabled").notNull().default(false),
+  notionToken: varchar("notion_token", { length: 255 }),
+  notionDatabaseId: varchar("notion_database_id", { length: 255 }),
+  notionLastSync: timestamp("notion_last_sync"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

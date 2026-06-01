@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { and, desc, eq, ilike, isNotNull, isNull, like, or, sql } from "drizzle-orm";
 import { db } from "../../src/lib/db";
-import { highlights, tags } from "../../src/schema";
+import { highlights, tags, users } from "../../src/schema";
 import { getAuthUserIdFromVercelReq } from "../../src/lib/auth";
 import { applyCors } from "../../src/lib/cors";
 import { rateLimit, getClientIp } from "../../src/lib/rate-limit";
@@ -141,8 +141,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // ── GET ?action=export&format=json|markdown ────────────────────────────
     if (req.method === "GET" && action === "export") {
       const format = (req.query.format as string) || "json";
-      if (format !== "json" && format !== "markdown")
-        return res.status(400).json({ error: "Format must be 'json' or 'markdown'" });
+      if (format !== "json" && format !== "markdown" && format !== "obsidian")
+        return res.status(400).json({ error: "Format must be 'json', 'markdown', or 'obsidian'" });
 
       const [allHighlights, allTags] = await Promise.all([
         db.select().from(highlights).where(and(eq(highlights.userId, userId), isNull(highlights.deletedAt))).orderBy(desc(highlights.createdAt)),
@@ -164,6 +164,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           createdAt: h.createdAt,
         }));
         return res.status(200).json({ content: JSON.stringify(data, null, 2), filename: "highlights.json" });
+      }
+
+      if (format === "obsidian") {
+        let obsidian = "";
+        for (const h of allHighlights) {
+          const tagNames = (JSON.parse(h.tagIds || "[]") as number[]).map((id) => tagMap[id]?.name).filter(Boolean);
+          const metaTags = JSON.parse(h.metadataTags || "[]") as string[];
+          const allTagNames = [...tagNames, ...metaTags];
+          obsidian += "---\n";
+          obsidian += `source: ${h.sourceUrl}\n`;
+          obsidian += `domain: ${h.domain || "unknown"}\n`;
+          obsidian += `tags: [${allTagNames.join(", ")}]\n`;
+          obsidian += `saved: ${new Date(h.createdAt).toISOString().split("T")[0]}\n`;
+          obsidian += "---\n\n";
+          obsidian += `> ${h.text}\n\n`;
+          if (h.notes) obsidian += `**Notes:** ${h.notes}\n\n`;
+          obsidian += "---\n\n";
+        }
+        return res.status(200).json({ content: obsidian, filename: "mind-palace-obsidian.md" });
       }
 
       const grouped: Record<string, typeof allHighlights> = {};
@@ -254,6 +273,125 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         page,
         limit,
       });
+    }
+
+    // ── POST ?action=notion-sync ─────────────────────────────────────────
+    if (req.method === "POST" && action === "notion-sync") {
+      const userRows = await db
+        .select({ notionToken: users.notionToken, notionDatabaseId: users.notionDatabaseId })
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
+
+      const user = userRows[0];
+      if (!user?.notionToken || !user?.notionDatabaseId) {
+        return res.status(400).json({ error: "Notion integration not configured. Set notionToken and notionDatabaseId first." });
+      }
+
+      const allHighlights = await db
+        .select()
+        .from(highlights)
+        .where(and(eq(highlights.userId, userId), isNull(highlights.deletedAt)))
+        .orderBy(desc(highlights.createdAt))
+        .limit(300);
+
+      let synced = 0;
+      const errors: string[] = [];
+
+      for (const h of allHighlights) {
+        try {
+          const notionRes = await fetch("https://api.notion.com/v1/pages", {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${user.notionToken}`,
+              "Notion-Version": "2022-06-28",
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              parent: { database_id: user.notionDatabaseId },
+              properties: {
+                Title: { title: [{ text: { content: h.pageTitle || h.domain || "Highlight" } }] },
+                URL: { url: h.sourceUrl || null },
+              },
+              children: [
+                {
+                  object: "block",
+                  type: "paragraph",
+                  paragraph: {
+                    rich_text: [{ type: "text", text: { content: h.text.slice(0, 2000) } }],
+                  },
+                },
+              ],
+            }),
+          });
+
+          if (notionRes.ok) {
+            synced++;
+          } else {
+            const errBody = await notionRes.text();
+            errors.push(`Highlight ${h.id}: ${notionRes.status} ${errBody.slice(0, 200)}`);
+          }
+        } catch (err: unknown) {
+          errors.push(`Highlight ${h.id}: ${err instanceof Error ? err.message : "Unknown error"}`);
+        }
+      }
+
+      const lastSync = new Date();
+      await db.update(users).set({ notionLastSync: lastSync }).where(eq(users.id, userId));
+
+      return res.status(200).json({ synced, total: allHighlights.length, lastSync: lastSync.toISOString(), errors: errors.length > 0 ? errors.slice(0, 10) : undefined });
+    }
+
+    // ── POST ?action=import-csv ────────────────────────────────────────────
+    if (req.method === "POST" && action === "import-csv") {
+      const { rows } = req.body ?? {};
+      if (!Array.isArray(rows) || rows.length === 0) {
+        return res.status(400).json({ error: "Request body must contain a non-empty 'rows' array" });
+      }
+      if (rows.length > 1000) {
+        return res.status(400).json({ error: "Maximum 1000 rows per import" });
+      }
+
+      const validRows: Array<{ text: string; sourceUrl: string; pageTitle: string; domain: string }> = [];
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        if (!row.text || typeof row.text !== "string" || row.text.length === 0) {
+          return res.status(400).json({ error: `Row ${i}: text is required` });
+        }
+        if (row.text.length > 50000) {
+          return res.status(400).json({ error: `Row ${i}: text exceeds 50,000 character limit` });
+        }
+        if (!row.sourceUrl || typeof row.sourceUrl !== "string") {
+          return res.status(400).json({ error: `Row ${i}: sourceUrl is required` });
+        }
+        if (!/^https?:\/\//i.test(row.sourceUrl)) {
+          return res.status(400).json({ error: `Row ${i}: sourceUrl must start with http:// or https://` });
+        }
+        validRows.push({
+          text: row.text,
+          sourceUrl: row.sourceUrl,
+          pageTitle: row.pageTitle || "",
+          domain: row.domain || "",
+        });
+      }
+
+      const inserted = await db
+        .insert(highlights)
+        .values(
+          validRows.map((r) => ({
+            userId,
+            text: r.text,
+            sourceUrl: r.sourceUrl,
+            pageTitle: r.pageTitle,
+            domain: r.domain,
+            notes: null,
+            tagIds: "[]",
+            metadataTags: JSON.stringify(inferTags(r.text)),
+          }))
+        )
+        .returning({ id: highlights.id });
+
+      return res.status(201).json({ imported: inserted.length });
     }
 
     // ── POST (create) ──────────────────────────────────────────────────────

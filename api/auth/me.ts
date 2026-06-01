@@ -40,6 +40,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         email: users.email,
         theme: users.theme,
         dailyEmailEnabled: users.dailyEmailEnabled,
+        notionToken: users.notionToken,
+        notionDatabaseId: users.notionDatabaseId,
+        notionLastSync: users.notionLastSync,
       })
       .from(users)
       .where(eq(users.id, payload.userId))
@@ -57,12 +60,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     return res.status(200).json({
       ...found[0],
+      notionConnected: !!(found[0].notionToken && found[0].notionDatabaseId),
       apiToken: tokenRows[0]?.token ?? null,
     });
   }
 
   if (req.method === "PATCH") {
-    const { theme, dailyEmailEnabled } = req.body ?? {};
+    const { theme, dailyEmailEnabled, notionToken, notionDatabaseId, notionLastSync } = req.body ?? {};
 
     const updates: Record<string, any> = { updatedAt: new Date() };
 
@@ -80,6 +84,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       updates.dailyEmailEnabled = dailyEmailEnabled;
     }
 
+    // Notion integration fields
+    if (notionToken !== undefined) {
+      if (notionToken !== null && (typeof notionToken !== "string" || notionToken.length > 255)) {
+        return res.status(400).json({ error: "notionToken must be a string (max 255 chars) or null" });
+      }
+      updates.notionToken = notionToken;
+    }
+    if (notionDatabaseId !== undefined) {
+      if (notionDatabaseId !== null && (typeof notionDatabaseId !== "string" || notionDatabaseId.length > 255)) {
+        return res.status(400).json({ error: "notionDatabaseId must be a string (max 255 chars) or null" });
+      }
+      updates.notionDatabaseId = notionDatabaseId;
+    }
+    if (notionLastSync !== undefined) {
+      updates.notionLastSync = notionLastSync === null ? null : new Date(notionLastSync);
+    }
+
     if (Object.keys(updates).length > 1) {
       await db
         .update(users)
@@ -94,12 +115,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         email: users.email,
         theme: users.theme,
         dailyEmailEnabled: users.dailyEmailEnabled,
+        notionToken: users.notionToken,
+        notionDatabaseId: users.notionDatabaseId,
+        notionLastSync: users.notionLastSync,
       })
       .from(users)
       .where(eq(users.id, payload.userId))
       .limit(1);
 
-    return res.status(200).json(found[0]);
+    return res.status(200).json({
+      ...found[0],
+      notionConnected: !!(found[0]?.notionToken && found[0]?.notionDatabaseId),
+    });
   }
 
   return res.status(405).json({ error: "Method not allowed" });

@@ -7,16 +7,21 @@ import {
   ArrowLeft,
   Check,
   Copy,
+  Database,
+  Download,
   Highlighter,
   Key,
+  Link2,
   Loader2,
   LogOut,
   Mail,
   Moon,
   Plus,
+  RefreshCw,
   Send,
   Sun,
   Trash2,
+  Upload,
   Wifi,
   WifiOff,
   Zap,
@@ -180,6 +185,16 @@ export default function Settings() {
   const [dailyEmail, setDailyEmail] = useState(true);
   const [dailyEmailSaving, setDailyEmailSaving] = useState(false);
 
+  // Notion integration state
+  const [notionToken, setNotionToken] = useState("");
+  const [notionDbId, setNotionDbId] = useState("");
+  const [notionConnecting, setNotionConnecting] = useState(false);
+  const [notionSyncing, setNotionSyncing] = useState(false);
+
+  // CSV import state
+  const [csvImporting, setCsvImporting] = useState(false);
+  const [csvFileInputVisible, setCsvFileInputVisible] = useState(false);
+
   // Sync dailyEmail state from user data
   useEffect(() => {
     if (user && 'dailyEmailEnabled' in user) {
@@ -209,6 +224,150 @@ export default function Settings() {
       toast.error("Network error");
     } finally {
       setDailyEmailSaving(false);
+    }
+  };
+
+  // ─── Notion handlers ──────────────────────────────────────────────────────
+  const connectNotion = async () => {
+    if (!notionToken.trim() || !notionDbId.trim()) {
+      toast.error("Please enter both a Notion token and database ID");
+      return;
+    }
+    setNotionConnecting(true);
+    try {
+      const res = await fetch("/api/auth/me", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ notionToken: notionToken.trim(), notionDatabaseId: notionDbId.trim() }),
+      });
+      if (res.ok) {
+        toast.success("Notion connected successfully");
+        setNotionToken("");
+        setNotionDbId("");
+        // Force user refresh so notionConnected updates
+        window.location.reload();
+      } else {
+        toast.error("Failed to connect Notion");
+      }
+    } catch {
+      toast.error("Network error");
+    } finally {
+      setNotionConnecting(false);
+    }
+  };
+
+  const disconnectNotion = async () => {
+    setNotionConnecting(true);
+    try {
+      const res = await fetch("/api/auth/me", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ notionToken: null, notionDatabaseId: null, notionLastSync: null }),
+      });
+      if (res.ok) {
+        toast.success("Notion disconnected");
+        window.location.reload();
+      } else {
+        toast.error("Failed to disconnect Notion");
+      }
+    } catch {
+      toast.error("Network error");
+    } finally {
+      setNotionConnecting(false);
+    }
+  };
+
+  const syncNotion = async () => {
+    setNotionSyncing(true);
+    try {
+      const res = await fetch("/api/highlights?action=notion-sync", {
+        method: "POST",
+        credentials: "include",
+      });
+      if (res.ok) {
+        const data = await res.json();
+        toast.success(`Synced ${data.synced} highlights to Notion${data.errors ? ` (${data.errors} errors)` : ""}`);
+      } else {
+        toast.error("Sync failed");
+      }
+    } catch {
+      toast.error("Network error");
+    } finally {
+      setNotionSyncing(false);
+    }
+  };
+
+  // ─── Obsidian export handler ──────────────────────────────────────────────
+  const [obsidianExporting, setObsidianExporting] = useState(false);
+  const exportObsidian = async () => {
+    setObsidianExporting(true);
+    try {
+      const res = await fetch("/api/highlights?action=export&format=obsidian", {
+        credentials: "include",
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const blob = new Blob([data.content], { type: "text/markdown" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "mind-palace-highlights.md";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        toast.success("Export downloaded");
+      } else {
+        toast.error("Export failed");
+      }
+    } catch {
+      toast.error("Network error");
+    } finally {
+      setObsidianExporting(false);
+    }
+  };
+
+  // ─── CSV import handler ───────────────────────────────────────────────────
+  const importCsv = async (file: File) => {
+    setCsvImporting(true);
+    try {
+      const text = await file.text();
+      const lines = text.split("\n").filter((l) => l.trim());
+      if (lines.length < 2) {
+        toast.error("CSV must have a header row and at least one data row");
+        setCsvImporting(false);
+        return;
+      }
+      // Skip header row, parse remaining
+      const rows = lines.slice(1).map((line) => {
+        const cols = line.split(",").map((c) => c.trim().replace(/^"|"$/g, ""));
+        return {
+          text: cols[0] || "",
+          sourceUrl: cols[1] || "",
+          pageTitle: cols[2] || "",
+          domain: cols[3] || "",
+        };
+      }).filter((r) => r.text);
+
+      const res = await fetch("/api/highlights?action=import-csv", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ rows }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        toast.success(`Imported ${data.count ?? rows.length} highlights`);
+      } else {
+        toast.error("Import failed");
+      }
+    } catch {
+      toast.error("Failed to parse CSV");
+    } finally {
+      setCsvImporting(false);
+      setCsvFileInputVisible(false);
     }
   };
 
@@ -398,6 +557,161 @@ export default function Settings() {
                 />
               </button>
             </div>
+          </div>
+        </section>
+
+        {/* Integrations */}
+        <section>
+          <h2 className="text-lg font-semibold mb-4">Integrations</h2>
+
+          {/* Notion Integration */}
+          <div className="p-5 rounded-xl bg-card border border-border space-y-4 mb-4">
+            <div className="flex items-center gap-3">
+              <Database className="w-5 h-5 text-primary" />
+              <div>
+                <p className="font-medium">Notion Integration</p>
+                <p className="text-sm text-muted-foreground">
+                  Sync your highlights to a Notion database
+                </p>
+              </div>
+            </div>
+
+            {(user as any)?.notionConnected ? (
+              <div className="space-y-3">
+                <div className="text-xs text-muted-foreground p-3 rounded-lg bg-green-500/5 border border-green-500/20">
+                  <Check className="inline w-3 h-3 text-green-500 mr-1" />
+                  Connected to database{" "}
+                  <code className="font-mono text-green-400">
+                    {(user as any).notionDatabaseId?.slice(0, 12)}...
+                  </code>
+                  {(user as any).notionLastSync && (
+                    <span className="ml-2">
+                      Last sync: {new Date((user as any).notionLastSync).toLocaleString()}
+                    </span>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" onClick={syncNotion} disabled={notionSyncing}>
+                    {notionSyncing ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
+                    ) : (
+                      <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
+                    )}
+                    {notionSyncing ? "Syncing..." : "Sync Now"}
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={disconnectNotion} disabled={notionConnecting}>
+                    Disconnect
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <p className="text-xs text-muted-foreground">
+                  Create an internal integration at{" "}
+                  <a
+                    href="https://notion.so/my-integrations"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline underline-offset-2 hover:text-foreground transition-colors"
+                  >
+                    notion.so/my-integrations
+                  </a>
+                  , then share a database with it.
+                </p>
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
+                    Notion Integration Token
+                  </label>
+                  <Input
+                    value={notionToken}
+                    onChange={(e) => setNotionToken(e.target.value)}
+                    placeholder="secret_..."
+                    className="font-mono text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
+                    Notion Database ID
+                  </label>
+                  <Input
+                    value={notionDbId}
+                    onChange={(e) => setNotionDbId(e.target.value)}
+                    placeholder="abc123def456..."
+                    className="font-mono text-xs"
+                  />
+                </div>
+                <Button size="sm" onClick={connectNotion} disabled={notionConnecting}>
+                  {notionConnecting ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
+                  ) : (
+                    <Link2 className="w-3.5 h-3.5 mr-1.5" />
+                  )}
+                  {notionConnecting ? "Connecting..." : "Connect"}
+                </Button>
+              </div>
+            )}
+          </div>
+
+          {/* Obsidian Export */}
+          <div className="p-5 rounded-xl bg-card border border-border space-y-4 mb-4">
+            <div className="flex items-center gap-3">
+              <Download className="w-5 h-5 text-primary" />
+              <div>
+                <p className="font-medium">Obsidian Export</p>
+                <p className="text-sm text-muted-foreground">
+                  Download all highlights as a Markdown file for Obsidian
+                </p>
+              </div>
+            </div>
+            <Button size="sm" onClick={exportObsidian} disabled={obsidianExporting}>
+              {obsidianExporting ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
+              ) : (
+                <Download className="w-3.5 h-3.5 mr-1.5" />
+              )}
+              {obsidianExporting ? "Exporting..." : "Export for Obsidian"}
+            </Button>
+          </div>
+
+          {/* CSV Import */}
+          <div className="p-5 rounded-xl bg-card border border-border space-y-4">
+            <div className="flex items-center gap-3">
+              <Upload className="w-5 h-5 text-primary" />
+              <div>
+                <p className="font-medium">CSV Import</p>
+                <p className="text-sm text-muted-foreground">
+                  Import highlights from a CSV file (columns: text, sourceUrl, pageTitle, domain)
+                </p>
+              </div>
+            </div>
+            {csvFileInputVisible ? (
+              <div className="space-y-3">
+                <input
+                  type="file"
+                  accept=".csv"
+                  disabled={csvImporting}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) importCsv(file);
+                  }}
+                  className="block w-full text-sm text-muted-foreground file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
+                />
+                {csvImporting && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    Importing...
+                  </div>
+                )}
+                <Button size="sm" variant="outline" onClick={() => setCsvFileInputVisible(false)} disabled={csvImporting}>
+                  Cancel
+                </Button>
+              </div>
+            ) : (
+              <Button size="sm" onClick={() => setCsvFileInputVisible(true)}>
+                <Upload className="w-3.5 h-3.5 mr-1.5" />
+                Import from CSV
+              </Button>
+            )}
           </div>
         </section>
 
